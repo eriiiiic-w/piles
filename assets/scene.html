@@ -58,6 +58,10 @@ document.body.appendChild(labelRenderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
+controls.enablePan = true;
+controls.panSpeed = 1.0;
+controls.screenSpacePanning = true;
+controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.PAN, RIGHT: THREE.MOUSE.PAN };
 
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
@@ -88,6 +92,7 @@ function createPiles(data) {
     const color = colorMap[pile.pile_type] || 0x95a5a6;
     const material = new THREE.MeshStandardMaterial({ color: color, roughness: 0.5, metalness: 0.2 });
     const mesh = new THREE.Mesh(geometry, material);
+    mesh.rotation.x = Math.PI / 2;
 
     const midZ = (pile.top_elev + (pile.bottom_elev || data.bounds.z[0])) / 2;
     mesh.position.set(pile.x, pile.y, midZ);
@@ -133,6 +138,19 @@ function initScene(data) {
   const axisSize = Math.max(bx[1] - bx[0], by[1] - by[0]) * 0.4;
   const axes = new THREE.AxesHelper(axisSize);
   scene.add(axes);
+
+  // Axis labels
+  function makeAxisLabel(text, x, y, z, color) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    div.style.cssText = `font-size:14px;font-weight:bold;color:${color};background:rgba(255,255,255,0.8);padding:1px 5px;border-radius:3px;`;
+    const label = new CSS2DObject(div);
+    label.position.set(x, y, z);
+    return label;
+  }
+  scene.add(makeAxisLabel('X', axisSize, 0, 0, '#e74c3c'));
+  scene.add(makeAxisLabel('Y', 0, axisSize, 0, '#2ecc71'));
+  scene.add(makeAxisLabel('Z', 0, 0, axisSize, '#3498db'));
 
   scene.add(createGround(data.bounds));
   scene.add(createPiles(data));
