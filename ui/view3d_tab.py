@@ -29,96 +29,29 @@ class View3DTab:
         if geo.empty or pile_df.empty:
             return json.dumps({"error": "请先加载数据"}, ensure_ascii=False)
 
-        layers = self.engine.get_layer_list()
-        colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
-
-        layer_color = {layers[i]: colors[i % len(colors)] for i in range(len(layers))}
-        layer_data_map = {}
-        for layer in layers:
-            ld = geo[geo['土层名称'] == layer]
-            if len(ld) >= 2:
-                layer_data_map[layer] = (ld['X'].values, ld['Y'].values, ld['土层顶标高'].values)
-            else:
-                layer_data_map[layer] = None
-
-        boreholes = []
-        all_z = []
-        for hid, g in geo.groupby("孔号"):
-            g = g.sort_values("土层顶标高", ascending=False)
-            hole_layers = []
-            for _, r in g.iterrows():
-                c = layer_color.get(r["土层名称"], '#888888')
-                top = float(r["土层顶标高"])
-                bottom = float(r["土层底标高"])
-                hole_layers.append({"name": str(r["土层名称"]), "top": top, "bottom": bottom, "color": c})
-                all_z.extend([top, bottom])
-            boreholes.append({"id": str(hid), "x": float(g["X"].iloc[0]), "y": float(g["Y"].iloc[0]), "layers": hole_layers})
-
-        if not hasattr(self, '_cached_predicts'):
-            self._cached_predicts = {}
-
         piles = []
         for _, p in pile_df.iterrows():
-            pno = str(p["桩号"])
-            px = float(p["X"])
-            py = float(p["Y"])
-            pd = float(p["桩径"])
-            pt = str(p.get("桩型", "未知"))
-
-            if pno not in self._cached_predicts:
-                res = {"桩号": pno, "X坐标": px, "Y坐标": py, "桩径(mm)": pd, "桩型": pt,
-                       "土层预测": {}, "土层底标高预测": {}, "土层排序": layers,
-                       "桩顶标高": self.store.user_pile_top_elev}
-                for layer in layers:
-                    ldm = layer_data_map.get(layer)
-                    if ldm is None:
-                        ld = geo[geo['土层名称'] == layer]
-                        z_pred = round(ld['土层顶标高'].mean(), 2) if not ld.empty else 10.0
-                    else:
-                        xv, yv, val = ldm
-                        z_pred = round(float(self.engine.idw_interpolate(px, py, xv, yv, val)), 2)
-                    res["土层预测"][layer] = z_pred
-                for i, layer in enumerate(layers):
-                    if i < len(layers) - 1:
-                        res["土层底标高预测"][layer] = res["土层预测"][layers[i + 1]]
-                    else:
-                        avg_thick = geo[geo['土层名称'] == layer]['土层厚度'].mean()
-                        res["土层底标高预测"][layer] = round(res["土层预测"][layer] - avg_thick, 2)
-                sup_depth = self.engine.calc_support_depth(pd)
-                if self.store.support_layer in res["土层预测"]:
-                    res["持力层顶标高"] = res["土层预测"][self.store.support_layer]
-                    res["持力层进入深度(m)"] = sup_depth
-                self._cached_predicts[pno] = res
-            else:
-                res = self._cached_predicts[pno]
-
-            pile_layers = []
-            current_z = res["桩顶标高"]
-            for lay in res["土层排序"]:
-                z = res["土层预测"].get(lay, current_z)
-                pile_layers.append({"name": lay, "top": float(current_z), "bottom": float(z),
-                                    "color": layer_color.get(lay, '#888888')})
-                current_z = z
-
-            support_elev = res.get("持力层顶标高", None)
             piles.append({
-                "id": pno, "x": px, "y": py, "diameter": pd, "pile_type": pt,
-                "top_elev": float(res["桩顶标高"]),
-                "support_elev": float(support_elev) if support_elev and support_elev != "未指定" else None,
-                "support_depth": float(res.get("持力层进入深度(m)", 0)),
-                "layers": pile_layers
+                "id": str(p["桩号"]),
+                "x": float(p["X"]),
+                "y": float(p["Y"]),
+                "diameter": float(p["桩径"]),
+                "pile_type": str(p.get("桩型", "未知")),
+                "top_elev": self.store.user_pile_top_elev,
+                "bottom_elev": None
             })
 
-        if not all_z:
-            all_z = [-30, 5]
+        z_vals = geo['土层顶标高'].dropna()
+        z_min = float(z_vals.min()) if len(z_vals) > 0 else -30
+        z_max = float(z_vals.max()) if len(z_vals) > 0 else 5
 
         return json.dumps({
-            "boreholes": boreholes, "piles": piles,
+            "piles": piles,
             "support_layer": self.store.support_layer,
             "bounds": {
                 "x": [float(geo["X"].min()), float(geo["X"].max())],
                 "y": [float(geo["Y"].min()), float(geo["Y"].max())],
-                "z": [min(all_z), max(all_z)]
+                "z": [z_min, z_max]
             }
         }, ensure_ascii=False)
 
