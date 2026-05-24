@@ -177,7 +177,7 @@ window.addEventListener('click', (e) => {
   if (intersects.length > 0) {
     const d = intersects[0].object.userData;
     sTitle.textContent = d.pileId;
-    sContent.innerHTML = `桩径: ${d.diameter}mm<br>桩型: ${d.pileType}<br>桩顶标高: ${d.topElev.toFixed(2)}m<br>桩底标高: ${d.bottomElev != null ? d.bottomElev.toFixed(2) : '?'}m<br>坐标: X=${d.x.toFixed(1)} Y=${d.y.toFixed(1)}`;
+    sContent.innerHTML = `桩径: ${d.diameter}mm<br>桩型: ${d.pileType}<br>桩顶标高: ${d.topElev.toFixed(2)}m<br>桩底标高: ${d.bottomElev != null ? d.bottomElev.toFixed(2) + 'm' : '未计算'}<br>坐标: X=${d.x.toFixed(1)} Y=${d.y.toFixed(1)}`;
     sidebar.style.display = 'block';
   } else {
     sidebar.style.display = 'none';

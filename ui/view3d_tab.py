@@ -29,16 +29,39 @@ class View3DTab:
         if geo.empty or pile_df.empty:
             return json.dumps({"error": "请先加载数据"}, ensure_ascii=False)
 
+        # Pre-compute support layer data for fast bottom elevation
+        support_layer = self.store.support_layer
+        sup_data = geo[geo['土层名称'] == support_layer] if support_layer else None
+        sup_xv, sup_yv, sup_val = None, None, None
+        if sup_data is not None and len(sup_data) >= 2:
+            sup_xv = sup_data['X'].values
+            sup_yv = sup_data['Y'].values
+            sup_val = sup_data['土层顶标高'].values
+
         piles = []
         for _, p in pile_df.iterrows():
+            px = float(p["X"])
+            py = float(p["Y"])
+            pd = float(p["桩径"])
+
+            # Compute bottom elevation from support layer
+            bottom_elev = None
+            if sup_xv is not None:
+                try:
+                    sup_elev = float(self.engine.idw_interpolate(px, py, sup_xv, sup_yv, sup_val))
+                    sup_depth = self.engine.calc_support_depth(pd)
+                    bottom_elev = round(sup_elev - sup_depth, 2)
+                except Exception:
+                    bottom_elev = None
+
             piles.append({
                 "id": str(p["桩号"]),
-                "x": float(p["X"]),
-                "y": float(p["Y"]),
-                "diameter": float(p["桩径"]),
+                "x": px,
+                "y": py,
+                "diameter": pd,
                 "pile_type": str(p.get("桩型", "未知")),
                 "top_elev": self.store.user_pile_top_elev,
-                "bottom_elev": None
+                "bottom_elev": bottom_elev
             })
 
         z_vals = geo['土层顶标高'].dropna()
