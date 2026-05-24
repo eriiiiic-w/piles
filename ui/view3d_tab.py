@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 import json
 import os
+import threading
 import webview
 
 
@@ -122,27 +123,20 @@ class View3DTab:
             f"const EMBEDDED_DATA = {scene_data};"
         )
 
-        class Api:
-            def __init__(self, tab):
-                self.tab = tab
-            def get_scene_data(self):
-                return self.tab._get_scene_data()
-            def on_pile_click(self, pile_id):
-                print(f"[3D] Pile clicked: {pile_id}")
-            def on_borehole_click(self, hole_id):
-                print(f"[3D] Borehole clicked: {hole_id}")
+        def run_webview():
+            self.webview_window = webview.create_window(
+                "3D 桩基土层视图",
+                html=html_content,
+                width=1200,
+                height=800,
+                resizable=True
+            )
+            webview.start()
 
-        api = Api(self)
-        self.webview_window = webview.create_window(
-            "3D 桩基土层视图",
-            html=html_content,
-            js_api=api,
-            width=1200,
-            height=800,
-            resizable=True
-        )
-        self.status_var.set("3D视图已打开 — 旋转:鼠标左键拖拽 | 缩放:滚轮 | 平移:鼠标右键拖拽")
-        webview.start()
+        thread = threading.Thread(target=run_webview, daemon=True)
+        thread.start()
+        self.frame.after(500, lambda: self.status_var.set(
+            "3D视图已打开 — 旋转:鼠标左键拖拽 | 缩放:滚轮 | 平移:鼠标右键拖拽"))
 
     def _refresh_data(self):
         if hasattr(self, '_cached_predicts'):
