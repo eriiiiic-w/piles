@@ -83,7 +83,7 @@ function createPiles(data) {
 
     if (pileHeight < 0.1) return;
 
-    const r = pile.diameter / 2000;
+    const r = Math.min(pile.diameter / 2000, 0.25);
     const geometry = new THREE.CylinderGeometry(r, r, pileHeight, 8);
     const color = colorMap[pile.pile_type] || 0x95a5a6;
     const material = new THREE.MeshStandardMaterial({ color: color, roughness: 0.5, metalness: 0.2 });
@@ -140,8 +140,8 @@ function initScene(data) {
 
   const bx = data.bounds.x, by = data.bounds.y, bz = data.bounds.z;
   const cx = (bx[0] + bx[1]) / 2, cy = (by[0] + by[1]) / 2, cz = (bz[0] + bz[1]) / 2;
-  const extent = Math.max(bx[1] - bx[0], by[1] - by[0], bz[1] - bz[0]) * 0.8;
-  camera.position.set(cx + extent, cy + extent * 0.6, cz + extent);
+  const extent = Math.max(bx[1] - bx[0], by[1] - by[0], bz[1] - bz[0]) * 0.25;
+  camera.position.set(cx + extent, cy + extent * 0.4, cz + extent);
   controls.target.set(cx, cy, cz);
   controls.update();
 
@@ -164,8 +164,8 @@ function resetView() {
   if (sceneData) {
     const bx = sceneData.bounds.x, by = sceneData.bounds.y, bz = sceneData.bounds.z;
     const cx = (bx[0] + bx[1]) / 2, cy = (by[0] + by[1]) / 2, cz = (bz[0] + bz[1]) / 2;
-    const extent = Math.max(bx[1] - bx[0], by[1] - by[0]) * 0.8;
-    camera.position.set(cx + extent, cy + extent * 0.6, cz + extent);
+    const extent = Math.max(bx[1] - bx[0], by[1] - by[0]) * 0.25;
+    camera.position.set(cx + extent, cy + extent * 0.4, cz + extent);
     controls.target.set(cx, cy, cz);
     controls.update();
   }
