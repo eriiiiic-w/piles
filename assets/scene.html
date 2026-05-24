@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3D 桩基土层视图</title>
+<style>
+  body { margin: 0; overflow: hidden; font-family: 'Microsoft YaHei', sans-serif; }
+  #info { position: absolute; top: 20px; left: 20px; color: #333; background: rgba(255,255,255,0.9); padding: 10px 16px; border-radius: 6px; pointer-events: none; font-size: 14px; }
+  #tooltip { position: absolute; display: none; background: rgba(0,0,0,0.85); color: #fff; padding: 10px 14px; border-radius: 8px; font-size: 13px; pointer-events: none; max-width: 280px; line-height: 1.5; }
+  #panel { position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.95); padding: 14px 18px; border-radius: 8px; font-size: 13px; max-width: 300px; display: none; box-shadow: 0 2px 10px rgba(0,0,0,0.15); }
+  #panel h3 { margin: 0 0 8px 0; font-size: 15px; }
+  #panel p { margin: 4px 0; }
+  button { margin: 4px; padding: 6px 12px; border: 1px solid #ccc; border-radius: 4px; background: #fff; cursor: pointer; font-size: 12px; }
+  button:hover { background: #eee; }
+  #controls { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; }
+</style>
+</head>
+<body>
+<div id="info">加载中...</div>
+<div id="tooltip"></div>
+<div id="panel"><h3 id="panel_title"></h3><div id="panel_content"></div></div>
+<div id="controls">
+  <button onclick="setView('front')">正视</button>
+  <button onclick="setView('top')">俯视</button>
+  <button onclick="setView('side')">侧视</button>
+  <button onclick="resetView()">重置</button>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xf0f0f0);
+scene.fog = new THREE.Fog(0xf0f0f0, 50, 200);
+
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.5, 500);
+camera.position.set(60, 40, 60);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+document.body.appendChild(renderer.domElement);
+
+const labelRenderer = new CSS2DRenderer();
+labelRenderer.setSize(window.innerWidth, window.innerHeight);
+labelRenderer.domElement.style.position = 'absolute';
+labelRenderer.domElement.style.top = '0';
+labelRenderer.domElement.style.pointerEvents = 'none';
+document.body.appendChild(labelRenderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.target.set(30, -5, 30);
+controls.update();
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+const tooltip = document.getElementById('tooltip');
+const panel = document.getElementById('panel');
+const info = document.getElementById('info');
+
+let pileMeshes = [];
+let boreholeLines = [];
+
+function createBoreholes(data) {
+  const group = new THREE.Group();
+  boreholeLines = [];
+
+  data.boreholes.forEach(bh => {
+    bh.layers.forEach(layer => {
+      const h = layer.top - layer.bottom;
+      if (h <= 0) return;
+      const geometry = new THREE.CylinderGeometry(0.15, 0.15, h, 6);
+      const material = new THREE.MeshStandardMaterial({ color: layer.color, roughness: 0.6 });
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(bh.x, bh.y, (layer.top + layer.bottom) / 2);
+      mesh.userData = { type: 'borehole', holeId: bh.id, layerName: layer.name, x: bh.x, y: bh.y, top: layer.top, bottom: layer.bottom };
+      group.add(mesh);
+      boreholeLines.push(mesh);
+    });
+
+    const div = document.createElement('div');
+    div.textContent = bh.id;
+    div.style.cssText = 'font-size:10px;color:#333;background:rgba(255,255,255,0.85);padding:2px 5px;border-radius:3px;';
+    const label = new CSS2DObject(div);
+    const maxZ = Math.max(...bh.layers.map(l => l.top));
+    label.position.set(bh.x, bh.y, maxZ + 1);
+    group.add(label);
+  });
+
+  return group;
+}
+
+function createPiles(data) {
+  const group = new THREE.Group();
+  pileMeshes = [];
+
+  data.piles.forEach(pile => {
+    pile.layers.forEach(layer => {
+      const h = layer.top - layer.bottom;
+      if (h <= 0) return;
+      const r = pile.diameter / 2000;
+      const geometry = new THREE.CylinderGeometry(r, r, h, 20);
+      const material = new THREE.MeshStandardMaterial({ color: layer.color, roughness: 0.4, metalness: 0.1 });
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.position.set(pile.x, pile.y, (layer.top + layer.bottom) / 2);
+      mesh.userData = {
+        type: 'pile', pileId: pile.id, diameter: pile.diameter, pileType: pile.pile_type,
+        topElev: pile.top_elev, supportElev: pile.support_elev, supportDepth: pile.support_depth,
+        x: pile.x, y: pile.y
+      };
+      group.add(mesh);
+      pileMeshes.push(mesh);
+    });
+
+    const div = document.createElement('div');
+    div.textContent = pile.id;
+    div.style.cssText = 'font-size:11px;color:#c0392b;background:rgba(255,255,200,0.9);padding:2px 6px;border-radius:3px;font-weight:bold;';
+    const label = new CSS2DObject(div);
+    label.position.set(pile.x, pile.y, pile.top_elev + 0.8);
+    group.add(label);
+  });
+
+  return group;
+}
+
+function createGround(bounds) {
+  const w = bounds.x[1] - bounds.x[0];
+  const d = bounds.y[1] - bounds.y[0];
+  const cx = (bounds.x[0] + bounds.x[1]) / 2;
+  const cy = (bounds.y[0] + bounds.y[1]) / 2;
+
+  const geometry = new THREE.PlaneGeometry(w * 1.3, d * 1.3);
+  const material = new THREE.MeshBasicMaterial({ color: 0xcccccc, side: THREE.DoubleSide, transparent: true, opacity: 0.2 });
+  const ground = new THREE.Mesh(geometry, material);
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.set(cx, cy, bounds.z[0] - 0.5);
+  return ground;
+}
+
+function createSupportPlane(data) {
+  if (!data.support_layer) return new THREE.Group();
+
+  const w = data.bounds.x[1] - data.bounds.x[0];
+  const d = data.bounds.y[1] - data.bounds.y[0];
+  const cx = (data.bounds.x[0] + data.bounds.x[1]) / 2;
+  const cy = (data.bounds.y[0] + data.bounds.y[1]) / 2;
+
+  let avgZ = data.bounds.z[0];
+  let count = 0;
+  data.piles.forEach(p => {
+    if (p.support_elev != null) { avgZ += p.support_elev; count++; }
+  });
+  if (count > 0) avgZ /= (count + 1);
+
+  const geometry = new THREE.PlaneGeometry(w * 1.1, d * 1.1);
+  const material = new THREE.MeshBasicMaterial({ color: 0xff4444, side: THREE.DoubleSide, transparent: true, opacity: 0.15 });
+  const plane = new THREE.Mesh(geometry, material);
+  plane.rotation.x = -Math.PI / 2;
+  plane.position.set(cx, cy, avgZ);
+  return plane;
+}
+
+function initScene(data) {
+  while(scene.children.length > 0) {
+    scene.remove(scene.children[0]);
+  }
+  scene.fog = new THREE.Fog(0xf0f0f0, 50, 200);
+
+  scene.add(createGround(data.bounds));
+  scene.add(createBoreholes(data));
+  scene.add(createPiles(data));
+  scene.add(createSupportPlane(data));
+
+  const light1 = new THREE.DirectionalLight(0xffffff, 1.2);
+  light1.position.set(50, 30, 60);
+  scene.add(light1);
+
+  const light2 = new THREE.AmbientLight(0x606060, 0.6);
+  scene.add(light2);
+
+  info.textContent = `勘探孔: ${data.boreholes.length} | 桩基: ${data.piles.length} | 持力层: ${data.support_layer || '未指定'}`;
+}
+
+function setView(dir) {
+  const target = controls.target.clone();
+  const dist = 60;
+  if (dir === 'front') camera.position.set(target.x, target.y, target.z + dist);
+  else if (dir === 'top') camera.position.set(target.x, target.y + dist, target.z + 0.1);
+  else if (dir === 'side') camera.position.set(target.x + dist, target.y, target.z);
+  controls.update();
+}
+
+function resetView() {
+  camera.position.set(60, 40, 60);
+  controls.target.set(30, -5, 30);
+  controls.update();
+}
+
+window.addEventListener('mousemove', (e) => {
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(pileMeshes.concat(boreholeLines));
+
+  if (intersects.length > 0) {
+    const obj = intersects[0].object;
+    if (obj.userData.type === 'pile') {
+      const d = obj.userData;
+      const pileLength = d.supportElev != null ? (d.topElev - (d.supportElev - d.supportDepth)).toFixed(2) : '未知';
+      tooltip.innerHTML = `<b>桩号: ${d.pileId}</b><br>桩径: ${d.diameter}mm | 桩型: ${d.pileType}<br>桩顶标高: ${d.topElev.toFixed(2)}m<br>持力层顶标高: ${d.supportElev != null ? d.supportElev.toFixed(2) : '未知'}m<br>桩长: ${pileLength}m`;
+      tooltip.style.display = 'block';
+      tooltip.style.left = (e.clientX + 15) + 'px';
+      tooltip.style.top = (e.clientY + 15) + 'px';
+    } else if (obj.userData.type === 'borehole') {
+      const d = obj.userData;
+      tooltip.innerHTML = `<b>勘探孔: ${d.holeId}</b><br>坐标: X=${d.x.toFixed(1)} Y=${d.y.toFixed(1)}`;
+      tooltip.style.display = 'block';
+      tooltip.style.left = (e.clientX + 15) + 'px';
+      tooltip.style.top = (e.clientY + 15) + 'px';
+    }
+  } else {
+    tooltip.style.display = 'none';
+  }
+});
+
+window.addEventListener('click', (e) => {
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(pileMeshes.concat(boreholeLines));
+
+  if (intersects.length > 0) {
+    const obj = intersects[0].object;
+    if (obj.userData.type === 'pile') {
+      const d = obj.userData;
+      document.getElementById('panel_title').textContent = `桩基: ${d.pileId}`;
+      document.getElementById('panel_content').innerHTML = `<p>桩型: ${d.pileType}</p><p>桩径: ${d.diameter}mm</p><p>桩顶标高: ${d.topElev.toFixed(2)}m</p><p>持力层顶标高: ${d.supportElev != null ? d.supportElev.toFixed(2) + 'm' : '未知'}</p><p>进入持力层: ${d.supportDepth.toFixed(2)}m</p>`;
+      panel.style.display = 'block';
+      if (window.exposed && window.exposed.on_pile_click) {
+        window.exposed.on_pile_click(d.pileId);
+      }
+    }
+  } else {
+    panel.style.display = 'none';
+  }
+});
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  labelRenderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+function loadData() {
+  if (window.exposed && window.exposed.get_scene_data) {
+    try {
+      const raw = window.exposed.get_scene_data();
+      const data = JSON.parse(raw);
+      if (data.error) {
+        info.textContent = '错误: ' + data.error;
+        return;
+      }
+      initScene(data);
+    } catch(e) {
+      info.textContent = '数据解析失败: ' + e.message;
+    }
+  } else {
+    info.textContent = '未连接到Python后端，请通过程序启动3D视图';
+  }
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+  labelRenderer.render(scene, camera);
+}
+
+setTimeout(loadData, 500);
+animate();
+</script>
+</body>
+</html>
