@@ -3,3 +3,5 @@ __pycache__/
 pile_app.db
 .env
 *.tmp
+.tmp_docx_unpacked/
+pile_app.db
