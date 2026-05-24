@@ -19,15 +19,15 @@
 
 | Skill | 何时调用 | 触发条件 |
 |-------|---------|---------|
-| `superpowers:brainstorming` | 开始任何非平凡实现前 | 需求模糊、多方案可选、架构决策、评估建议是否合理 |
-| `superpowers:writing-plans` | brainstorming 确认方案后 | 涉及多文件、多步骤的实现任务 |
-| `superpowers:subagent-driven-development` | 执行计划中的独立任务 | 计划拆分为多个独立子任务时 |
-| `superpowers:executing-plans` | 需要并行会话执行 | 任务适合切到独立会话时 |
-| `superpowers:requesting-code-review` | 完成任务/功能/修复后 | 每个重要改动完成后、合并前 |
-| `superpowers:systematic-debugging` | 遇到非显而易见的 bug | 根因不明、难以复现、涉及多系统 |
-| `superpowers:test-driven-development` | 编写新功能或修复 bug | 有明确输入输出的逻辑代码 |
-| `superpowers:verification-before-completion` | 声明"完成了"之前 | 任何改动完成后必须自证通过 |
-| `superpowers:finishing-a-development-branch` | 所有任务完成后 | 分支准备合并时 |
+| `brainstorming` | 开始任何非平凡实现前 | 需求模糊、多方案可选、架构决策、评估建议是否合理 |
+| `writing-plans` | brainstorming 确认方案后 | 涉及多文件、多步骤的实现任务 |
+| `subagent-driven-development` | 执行计划中的独立任务 | 计划拆分为多个独立子任务时 |
+| `executing-plans` | 需要并行会话执行 | 任务适合切到独立会话时 |
+| `requesting-code-review` | 完成任务/功能/修复后 | 每个重要改动完成后、合并前 |
+| `systematic-debugging` | 遇到非显而易见的 bug | 根因不明、难以复现、涉及多系统 |
+| `test-driven-development` | 编写新功能或修复 bug | 有明确输入输出的逻辑代码 |
+| `verification-before-completion` | 声明"完成了"之前 | 任何改动完成后必须自证通过 |
+| `finishing-a-development-branch` | 所有任务完成后 | 分支准备合并时 |
 
 **调用规则**：
 - brainstorming 和 writing-plans 是 **前置必经步骤**，不可跳过直接写代码。
@@ -65,42 +65,125 @@
 
 ```
 桩基智能体/
-├── main.py                          # 程序入口，组装 core 和 ui
-├── core/                            # 纯 Python，零 UI 依赖，未来可复用为 FastAPI 后端
-│   ├── __init__.py
-│   ├── data_layer.py                # DataStore：数据读写、JSON 持久化
-│   ├── prediction.py                # PredictEngine：克里金/IDW 插值预测
-│   └── bearing_capacity.py          # BearingCalc：JGJ94-2008 承载力计算
-├── ui/                              # Tkinter 界面层
-│   ├── __init__.py
-│   ├── data_tab.py                  # 数据管理页（导入、持力层设置）
-│   ├── predict_tab.py               # 预测与实测对比页（2D 柱状图）
-│   ├── view3d_tab.py                # 3D 视图页（生成数据 → 浏览器打开 scene.html）
-│   ├── record_tab.py                # 打桩记录页
-│   └── log_tab.py                   # 施工日志页
-├── assets/
-│   └── scene.html                   # Three.js 3D 场景（浏览器渲染，CDN 加载）
-└── project_full_data.json           # 运行时持久化数据
+├── start.py                          # 一键启动脚本 (uvicorn)
+├── server/                           # FastAPI 后端
+│   ├── main.py                       # 应用入口，注册路由 + 托管静态文件
+│   ├── database.py                   # SQLAlchemy 引擎 + SQLite 连接
+│   ├── schemas.py                    # Pydantic 请求/响应模型
+│   ├── migrate.py                    # JSON → SQLite 一次性迁移脚本
+│   ├── api/                          # REST 路由层 (18 个端点)
+│   │   ├── project.py                # GET /api/project
+│   │   ├── settings.py               # GET/PUT /api/settings
+│   │   ├── geo.py                    # 地勘上传/查询
+│   │   ├── piles.py                  # 桩基上传/查询
+│   │   ├── predict.py                # 单桩/批量/场景数据预测
+│   │   ├── measured.py               # 实测数据录入/查询
+│   │   ├── bearing.py                # 承载力计算 + 参数上传
+│   │   └── export.py                 # Excel 导出
+│   ├── models/                       # SQLAlchemy ORM (7 表)
+│   │   ├── geo.py                    # geo_layers
+│   │   ├── pile.py                   # piles
+│   │   ├── prediction.py             # predictions
+│   │   ├── measured.py               # measured
+│   │   ├── settings.py               # settings (key-value)
+│   │   ├── soil_params.py            # soil_params (qsik/qpk)
+│   │   └── operation_log.py          # operation_logs
+│   ├── services/                     # 业务逻辑层
+│   │   ├── settings_service.py
+│   │   ├── geo_service.py
+│   │   └── predict_service.py
+│   └── core/                         # 纯计算引擎 (无状态函数)
+│       ├── prediction.py             # 克里金/IDW 插值
+│       └── bearing_capacity.py       # JGJ94-2008 承载力计算
+├── client/                           # React 18 + TypeScript 前端
+│   ├── src/
+│   │   ├── App.tsx                   # 入口 (ConfigProvider + AppLayout)
+│   │   ├── main.tsx                  # ReactDOM 挂载
+│   │   ├── api/client.ts             # Axios API 客户端 (完整类型定义)
+│   │   ├── store/                    # Zustand 状态管理
+│   │   │   ├── useProjectStore.ts
+│   │   │   ├── usePileStore.ts
+│   │   │   └── useSettingsStore.ts
+│   │   ├── components/
+│   │   │   ├── layout/               # AppLayout, Sidebar, StatusBar
+│   │   │   ├── charts/LayerChart.tsx  # Recharts 2D 柱状图
+│   │   │   └── three/                # React-Three-Fiber 3D 组件
+│   │   │       ├── SceneCanvas.tsx
+│   │   │       ├── PileLayer.tsx
+│   │   │       └── GroundPlane.tsx
+│   │   └── pages/
+│   │       ├── DataPage.tsx           # 数据管理
+│   │       ├── PredictPage.tsx        # 预测与实测
+│   │       ├── View3DPage.tsx         # 3D 视图
+│   │       └── RecordPage.tsx         # 记录与承载力
+│   ├── vite.config.ts
+│   └── package.json
+├── legacy/                           # 旧 Tkinter 代码 (保留参考)
+│   ├── main.py
+│   └── ui/
+├── core/                             # 原始计算模块 (旧版保留)
+├── assets/scene.html                 # 原始 3D 场景 (旧版保留)
+└── project_full_data.json            # 旧 JSON 数据 (已迁移到 SQLite)
 ```
 
 ## 核心模块
 
-| 模块 | 类 | 职责 |
-|------|-----|------|
-| `core/data_layer.py` | `DataStore` | 地勘/桩基数据加载、实测数据管理、JSON 持久化 |
-| `core/prediction.py` | `PredictEngine` | 克里金/IDW 插值、单桩/批量预测、`predict_one_fast()` 用 IDW 快速预测（供 3D 视图） |
-| `core/bearing_capacity.py` | `BearingCalc` | JGJ94-2008 单桩竖向承载力：Qsk + Qpk = Quk → Ra |
-| `ui/view3d_tab.py` | `View3DTab` | 生成桩位 JSON → 注入 HTML → `webbrowser.open()` 浏览器渲染 |
+| 模块 | 关键函数 | 职责 |
+|------|---------|------|
+| `server/core/prediction.py` | `predict_one()`, `predict_one_fast()`, `idw_interpolate()`, `krige_interpolate()` | 无状态插值预测，接受 DataFrame |
+| `server/core/bearing_capacity.py` | `calculate()`, `load_soil_params()`, `export_calc_sheet()` | JGJ94-2008 承载力，函数式接口 |
+| `server/services/predict_service.py` | `predict_single()`, `predict_all()`, `get_scene_data()` | 预测业务编排 + 缓存 |
+| `client/src/components/three/SceneCanvas.tsx` | R3F Canvas | 3D 场景渲染 (WebGL) |
+| `client/src/components/three/PileLayer.tsx` | 760 根桩体圆柱 | 悬停/点击交互 + 选中高亮 |
 
-## 3D 视图技术细节
+## 数据存储
 
-- **渲染方案**：Three.js (WebGL)，浏览器打开，非 pywebview 内嵌（避免线程死锁）
-- **数据注入**：Python 生成 IDW 快速预测结果 → JSON → 写入临时 HTML → 浏览器打开
-- **显示内容**：760 根桩体圆柱（按桩型着色）+ 半透明地面 + 持力层参考面
-- **交互**：OrbitControls 旋转/平移/缩放、Raycaster 悬停显示桩号、点击弹出左侧详情面板
-- **视角**：正视(YZ平面)、俯视(XY平面)、侧视(XZ平面)，按钮置于页面顶部中央
-- **坐标轴**：右上角 80px gizmo 随视角旋转，红X绿Y蓝Z
-- **相机**：`camera.up.set(0,0,1)`，Z 轴为垂直方向
+- **数据库**：SQLite (`pile_app.db`)，7 张表，通过 SQLAlchemy ORM 访问
+- **迁移**：`python server/migrate.py` 从旧 JSON 一次性导入
+- **实测数据**：独立 `measured` 表存储，不再写回地勘数据（修复数据污染问题）
+- **预测缓存**：`predictions` 表避免重复计算
+
+## 启动方式
+
+```bash
+# 首次：构建前端 (需 Node.js)
+cd client && npm install && npm run build && cd ..
+
+# 启动 (只需 Python)
+python start.py
+# 浏览器打开 http://localhost:8000
+```
+
+开发模式（前后端分离）：
+```bash
+# 终端1: 后端
+python start.py
+# 终端2: 前端热重载
+cd client && npm run dev
+# 浏览器打开 http://localhost:5173
+```
+
+## 技术栈
+
+- **后端**：Python 3, FastAPI, Uvicorn, SQLAlchemy, SQLite, Pandas, NumPy, PyKrige, Openpyxl
+- **前端**：React 18, TypeScript, Vite, Ant Design 5, Zustand, React-Three-Fiber, Drei, AG Grid, Recharts, Axios
+- **3D 渲染**：Three.js via React-Three-Fiber (WebGL)
+- **坐标系统**：项目使用独立坐标系（非WGS84），XY 为水平面，Z 为高程，`camera.up.set(0,0,1)`
+
+## 3D 视图功能清单
+
+| 功能 | 实现 | 状态 |
+|------|------|------|
+| 760 根桩体圆柱 (按桩型着色) | PileLayer + colorMap | V1 |
+| 半透明地面参考面 | GroundPlane | V1 |
+| 悬停识别 → 桩号 Tooltip | onPointerMove + state | V1 |
+| 点击选中 → 高亮 + Drawer 联动 | onClick + emissive | V1 |
+| 右上角 Gizmo 坐标轴 | Drei GizmoHelper | V1 |
+| OrbitControls (旋转/平移/缩放) | Drei OrbitControls | V1 |
+| 视角切换 (正视/俯视/侧视) | 按钮已就位 (相机动画待实现) | V1 |
+| 图例 (灌注桩/预制桩/其他) | 固定色块 | V1 |
+| 图层显隐 + 透明度 | 待实现 | V2 |
+| 剖切面 + 测量工具 + 截图导出 | 待实现 | V2 |
 
 ## 关键数据文件
 
@@ -109,34 +192,30 @@
 | `地勘报告修改版.csv` / `.xlsx` | 地质勘探原始数据（238 孔 × 17 土层 = 4046 条分层记录） |
 | `西地块地下室桩基施工图 (灌注桩)(1)(1).csv` / `.xlsx` | 桩位坐标与设计参数（760 根桩） |
 | `实际勘探孔.csv` | 筛选后的有效勘探孔数据 |
-| `project_full_data.json` | 系统运行时持久化的项目数据 |
+| `pile_app.db` | 运行时 SQLite 数据库（已迁移 4046 条地勘 + 760 根桩） |
+| `project_full_data.json` | 旧 JSON 持久化文件（已迁移，保留备用） |
 | `承载力计算.pdf` | 桩基承载力计算书 |
 | `JGJ94-2008 建筑桩基技术规范.pdf` | 国家规范 |
 | `0勘察报告/` | 勘察报告原始资料目录 |
 | `桩编号图纯净版.dwg` | CAD桩位编号图 |
 
-## 技术栈
-
-- Python 3，依赖：`pandas`, `numpy`, `pykrige`, `matplotlib` (仅 2D), `scipy`, `tkinter`
-- 3D 渲染：Three.js v0.160 (CDN + 离线降级)
-- 坐标系统：项目使用独立坐标系（非WGS84），XY 为水平面，Z 为高程
-- 编码注意：CSV 文件可能为 GBK 或 UTF-8，读取时需兼容处理
-
 ## 已知问题
 
 - **IDW 快速预测精度**：3D 视图用 IDW 替代克里金（约 0.2s 完成 760 桩），与正式克里金预测有微小偏差
 - **桩底标高**：3D 视图中桩底 = 持力层顶标高(IDW预测) − 进入深度，未设置持力层时无桩底
-- **离线模式**：3D 视图首次需要联网加载 Three.js CDN
+- **首次启动**：需要先 `npm run build` 构建前端，之后纯 Python 启动
+- **视角切换按钮**：正视/俯视/侧视按钮 UI 已就位，相机动画逻辑待接入
 
 ## 当前进展
 
 - 完成克里金插值预测核心算法
-- 完成分层重构（876行单文件 → 12 个模块化文件）
-- 修复 IDW argmin → np.argmin bug
-- 新增 JGJ94-2008 承载力计算模块
-- 3D 视图从 Matplotlib 切换为 Three.js WebGL（浏览器渲染）
-- 3D 交互：旋转/平移/缩放、悬停显示桩号、点击显示详情面板
-- 数据持久化（JSON）已修复读写错误
+- 完成 Web 化全量重写：Tkinter → React + FastAPI + SQLite
+- 前后端分离四层架构：前端(React) + API(FastAPI) + 计算(core/) + 存储(SQLite)
+- 18 个 REST API 端点，覆盖全部业务功能
+- 3D 场景从独立 HTML → React-Three-Fiber 组件化
+- 实测数据独立存储，修复数据污染问题
+- 预测结果缓存到 SQLite，避免重复计算
+- 旧 Tkinter 代码保留在 legacy/ 目录
 - 已部署 3 个 Claude Code Skills（Superpowers、Karpathy Guidelines、ECC）
 
 ## 工作日志
@@ -145,18 +224,8 @@
 
 格式：`YYYY-MM-DD: [简述] — [改动文件列表]`
 
-<!-- 工作日志开始 -->
 - 2026-05-24: 更新 CLAUDE.md — 增加 Persona 定义、三个 Skills 调用规范、工作日志章节
 - 2026-05-24: **分层重构完成** — 876行单文件拆分为 core/(data_layer, prediction, bearing_capacity) + ui/(data_tab, predict_tab, view3d_tab, record_tab, log_tab) + main.py。修复 IDW argmin bug。新增 JGJ94-2008 承载力计算模块。删除旧单文件。
-- 2026-05-24: **3D视图调试完成（多轮迭代）**：
-  - pywebview JS API → 直接注入 JSON 数据
-  - pywebview 子线程死锁 → 改用 `webbrowser.open()` 系统浏览器
-  - 全量克里金预测卡死 → `predict_one_fast()` 仅对持力层做 IDW（760桩 × 0.2s）
-  - 勘探孔+桩体分段圆柱 15000+ 几何体 → 仅显示桩体（760 根单色圆柱）
-  - 按钮 onclick 模块作用域问题 → addEventListener 绑定
-  - 视角修正（正视=YZ, 俯视=XY, 侧视=XZ），Z 轴向上
-  - 左侧详情面板（点击显示完整信息）、悬停仅显示桩号
-  - 右上角坐标轴 gizmo、按钮移至顶部中央
-  - 桩底标高通过持力层 IDW 预测计算
+- 2026-05-24: **3D视图调试完成（多轮迭代）** — pywebview → 直接注入JSON → webbrowser.open → IDW快速预测 → 仅显示桩体 → 视角修正 → 详情面板 → gizmo → 桩底标高计算
 - 2026-05-24: 更新 CLAUDE.md — 完善项目架构、模块说明、3D 技术细节、已知问题
-<!-- 工作日志结束 -->
+- 2026-05-24: **Web 化全量重写完成** — 架构: React 18 + TypeScript + FastAPI + SQLite。22 个后端文件 (server/) + 17 个前端文件 (client/)。7 张数据库表替代 JSON。18 个 REST API 端点。3D 场景用 React-Three-Fiber 重写 (悬停/选中/高亮/Gizmo)。TypeScript 零错误，前端构建成功，4046条地勘+760根桩已迁移。旧 Tkinter 代码移至 legacy/ 保留。设计文档: docs/superpowers/specs/ + plans/
