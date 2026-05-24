@@ -56,13 +56,18 @@ class View3DTab:
             self._cached_predicts = {}
 
         piles = []
-        for _, p in pile.iterrows():
+        pile_list = list(pile.iterrows())
+        total = len(pile_list)
+        for idx, (_, p) in enumerate(pile_list):
             pno = str(p["桩号"])
             if pno not in self._cached_predicts:
-                self._cached_predicts[pno] = self.engine.predict_one(pno)
+                self._cached_predicts[pno] = self.engine.predict_one_fast(pno)
             res = self._cached_predicts[pno]
             if res is None:
                 continue
+
+            if idx % 50 == 0:
+                self.status_var.set(f"3D数据准备中... {idx}/{total}")
 
             pile_layers = []
             current_z = res["桩顶标高"]
@@ -111,22 +116,21 @@ class View3DTab:
             self.status_var.set("请先加载地勘和桩基数据")
             return
 
-        self.status_var.set("3D视图正在加载...")
+        self.status_var.set("3D数据准备中...")
 
         html_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "scene.html")
         with open(html_path, "r", encoding="utf-8") as f:
             html_content = f.read()
 
-        scene_data = self._get_scene_data()
-        html_content = html_content.replace(
-            "// DATA_PLACEHOLDER",
-            f"const EMBEDDED_DATA = {scene_data};"
-        )
-
         def run_webview():
+            scene_data = self._get_scene_data()
+            final_html = html_content.replace(
+                "// DATA_PLACEHOLDER",
+                f"const EMBEDDED_DATA = {scene_data};"
+            )
             self.webview_window = webview.create_window(
                 "3D 桩基土层视图",
-                html=html_content,
+                html=final_html,
                 width=1200,
                 height=800,
                 resizable=True
