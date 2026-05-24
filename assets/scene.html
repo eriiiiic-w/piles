@@ -17,10 +17,10 @@
 <div id="info">加载中...</div>
 <div id="tooltip"></div>
 <div id="controls">
-  <button onclick="setView('front')">正视</button>
-  <button onclick="setView('top')">俯视</button>
-  <button onclick="setView('side')">侧视</button>
-  <button onclick="resetView()">重置</button>
+  <button id="btn-front">正视</button>
+  <button id="btn-top">俯视</button>
+  <button id="btn-side">侧视</button>
+  <button id="btn-reset">重置</button>
 </div>
 
 <script type="importmap">
@@ -129,6 +129,11 @@ function initScene(data) {
   sceneData = data;
   while (scene.children.length > 0) scene.remove(scene.children[0]);
 
+  const bx = data.bounds.x, by = data.bounds.y, bz = data.bounds.z;
+  const axisSize = Math.max(bx[1] - bx[0], by[1] - by[0]) * 0.4;
+  const axes = new THREE.AxesHelper(axisSize);
+  scene.add(axes);
+
   scene.add(createGround(data.bounds));
   scene.add(createPiles(data));
 
@@ -138,7 +143,6 @@ function initScene(data) {
   const light2 = new THREE.AmbientLight(0x707070, 0.5);
   scene.add(light2);
 
-  const bx = data.bounds.x, by = data.bounds.y, bz = data.bounds.z;
   const cx = (bx[0] + bx[1]) / 2, cy = (by[0] + by[1]) / 2, cz = (bz[0] + bz[1]) / 2;
   const extent = Math.max(bx[1] - bx[0], by[1] - by[0], bz[1] - bz[0]) * 0.25;
   camera.position.set(cx + extent, cy + extent * 0.4, cz + extent);
@@ -200,11 +204,17 @@ function loadData() {
       initScene(EMBEDDED_DATA);
     } catch(e) {
       info.textContent = '场景初始化失败: ' + e.message;
+      console.error(e);
     }
   } else {
     info.textContent = '数据未加载，请通过程序启动3D视图';
   }
 }
+
+document.getElementById('btn-front').addEventListener('click', () => setView('front'));
+document.getElementById('btn-top').addEventListener('click', () => setView('top'));
+document.getElementById('btn-side').addEventListener('click', () => setView('side'));
+document.getElementById('btn-reset').addEventListener('click', () => resetView());
 
 function animate() {
   requestAnimationFrame(animate);
