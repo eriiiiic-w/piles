@@ -45,8 +45,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xf0f0f0);
 scene.fog = new THREE.Fog(0xf0f0f0, 50, 200);
 
-const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.5, 500);
-camera.position.set(60, 40, 60);
+const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.5, 2000);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -64,8 +63,23 @@ document.body.appendChild(labelRenderer.domElement);
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
-controls.target.set(30, -5, 30);
-controls.update();
+
+let sceneCenter = { x: 30, y: -5, z: 0 };
+
+function fitCameraToData(data) {
+  const bx = data.bounds.x;
+  const by = data.bounds.y;
+  const bz = data.bounds.z;
+  sceneCenter = {
+    x: (bx[0] + bx[1]) / 2,
+    y: (by[0] + by[1]) / 2,
+    z: (bz[0] + bz[1]) / 2
+  };
+  const extent = Math.max(bx[1] - bx[0], by[1] - by[0], bz[1] - bz[0]) * 0.8;
+  camera.position.set(sceneCenter.x + extent, sceneCenter.y + extent * 0.6, sceneCenter.z + extent);
+  controls.target.set(sceneCenter.x, sceneCenter.y, sceneCenter.z);
+  controls.update();
+}
 
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
@@ -176,12 +190,14 @@ function createSupportPlane(data) {
 }
 
 function initScene(data) {
+  sceneData = data;
   while(scene.children.length > 0) {
     scene.remove(scene.children[0]);
   }
-  scene.fog = new THREE.Fog(0xf0f0f0, 50, 200);
+  scene.fog = new THREE.Fog(0xf0f0f0, 50, 2000);
 
-  scene.add(createGround(data.bounds));
+  const ground = createGround(data.bounds);
+  if (ground) scene.add(ground);
   scene.add(createBoreholes(data));
   scene.add(createPiles(data));
   scene.add(createSupportPlane(data));
@@ -193,22 +209,26 @@ function initScene(data) {
   const light2 = new THREE.AmbientLight(0x606060, 0.6);
   scene.add(light2);
 
+  fitCameraToData(data);
+
   info.textContent = `勘探孔: ${data.boreholes.length} | 桩基: ${data.piles.length} | 持力层: ${data.support_layer || '未指定'}`;
 }
 
 function setView(dir) {
-  const target = controls.target.clone();
-  const dist = 60;
-  if (dir === 'front') camera.position.set(target.x, target.y, target.z + dist);
-  else if (dir === 'top') camera.position.set(target.x, target.y + dist, target.z + 0.1);
-  else if (dir === 'side') camera.position.set(target.x + dist, target.y, target.z);
+  const dist = Math.max(
+    (sceneData.bounds.x[1] - sceneData.bounds.x[0]),
+    (sceneData.bounds.y[1] - sceneData.bounds.y[0])
+  ) * 1.2;
+  const cx = sceneCenter.x, cy = sceneCenter.y, cz = sceneCenter.z;
+  if (dir === 'front') camera.position.set(cx, cy, cz + dist);
+  else if (dir === 'top') camera.position.set(cx, cy + dist, cz + 0.1);
+  else if (dir === 'side') camera.position.set(cx + dist, cy, cz);
+  controls.target.set(cx, cy, cz);
   controls.update();
 }
 
 function resetView() {
-  camera.position.set(60, 40, 60);
-  controls.target.set(30, -5, 30);
-  controls.update();
+  fitCameraToData(sceneData);
 }
 
 window.addEventListener('mousemove', (e) => {
