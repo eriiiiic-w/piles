@@ -11,11 +11,16 @@
   #controls { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; z-index: 5; }
   button { padding: 6px 14px; border: 1px solid #bbb; border-radius: 4px; background: #fff; cursor: pointer; font-size: 13px; font-family: 'Microsoft YaHei', sans-serif; }
   button:hover { background: #e8e8e8; }
+  #sidebar { position: absolute; left: 15px; top: 60px; width: 220px; background: rgba(255,255,255,0.95); border-radius: 8px; padding: 14px; display: none; box-shadow: 0 2px 12px rgba(0,0,0,0.12); font-size: 13px; line-height: 1.6; }
+  #sidebar h3 { margin: 0 0 8px 0; font-size: 15px; color: #2c3e50; }
+  #sidebar p { margin: 3px 0; color: #555; }
+  #sidebar .hint { color: #999; font-size: 11px; margin-top: 6px; }
 </style>
 </head>
 <body>
 <div id="info">加载中...</div>
 <div id="tooltip"></div>
+<div id="sidebar"><h3 id="s_title">桩号</h3><div id="s_content"></div><p class="hint">点击空白处关闭</p></div>
 <div id="controls">
   <button id="btn-front">正视</button>
   <button id="btn-top">俯视</button>
@@ -74,7 +79,7 @@ function createPiles(data) {
       : Math.abs(pile.top_elev - data.bounds.z[0]);
     if (pileHeight < 0.1) return;
 
-    const r = Math.min(pile.diameter / 2000, 0.25);
+    const r = Math.max(pile.diameter / 2000, 0.3);
     const geometry = new THREE.CylinderGeometry(r, r, pileHeight, 8);
     const color = colorMap[pile.pile_type] || 0x95a5a6;
     const material = new THREE.MeshStandardMaterial({ color, roughness: 0.5, metalness: 0.2 });
@@ -153,12 +158,29 @@ window.addEventListener('mousemove', (e) => {
   const intersects = raycaster.intersectObjects(pileMeshes);
   if (intersects.length > 0) {
     const d = intersects[0].object.userData;
-    tooltip.innerHTML = `<b>${d.pileId}</b><br>桩径: ${d.diameter}mm | 桩型: ${d.pileType}<br>桩顶: ${d.topElev.toFixed(2)}m<br>桩底: ${d.bottomElev != null ? d.bottomElev.toFixed(2) : '?'}m`;
+    tooltip.textContent = d.pileId;
     tooltip.style.display = 'block';
     tooltip.style.left = (e.clientX + 15) + 'px';
     tooltip.style.top = (e.clientY + 15) + 'px';
   } else {
     tooltip.style.display = 'none';
+  }
+});
+
+const sidebar = document.getElementById('sidebar');
+const sTitle = document.getElementById('s_title');
+const sContent = document.getElementById('s_content');
+
+window.addEventListener('click', (e) => {
+  raycaster.setFromCamera(mouse, camera);
+  const intersects = raycaster.intersectObjects(pileMeshes);
+  if (intersects.length > 0) {
+    const d = intersects[0].object.userData;
+    sTitle.textContent = d.pileId;
+    sContent.innerHTML = `桩径: ${d.diameter}mm<br>桩型: ${d.pileType}<br>桩顶标高: ${d.topElev.toFixed(2)}m<br>桩底标高: ${d.bottomElev != null ? d.bottomElev.toFixed(2) : '?'}m<br>坐标: X=${d.x.toFixed(1)} Y=${d.y.toFixed(1)}`;
+    sidebar.style.display = 'block';
+  } else {
+    sidebar.style.display = 'none';
   }
 });
 
