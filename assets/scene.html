@@ -250,8 +250,8 @@ window.addEventListener('click', (e) => {
       document.getElementById('panel_title').textContent = `桩基: ${d.pileId}`;
       document.getElementById('panel_content').innerHTML = `<p>桩型: ${d.pileType}</p><p>桩径: ${d.diameter}mm</p><p>桩顶标高: ${d.topElev.toFixed(2)}m</p><p>持力层顶标高: ${d.supportElev != null ? d.supportElev.toFixed(2) + 'm' : '未知'}</p><p>进入持力层: ${d.supportDepth.toFixed(2)}m</p>`;
       panel.style.display = 'block';
-      if (window.exposed && window.exposed.on_pile_click) {
-        window.exposed.on_pile_click(d.pileId);
+      if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.on_pile_click(d.pileId);
       }
     }
   } else {
@@ -266,10 +266,14 @@ window.addEventListener('resize', () => {
   labelRenderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+// DATA_PLACEHOLDER
+
 function loadData() {
-  if (window.exposed && window.exposed.get_scene_data) {
+  if (typeof EMBEDDED_DATA !== 'undefined') {
+    initScene(EMBEDDED_DATA);
+  } else if (window.pywebview && window.pywebview.api) {
     try {
-      const raw = window.exposed.get_scene_data();
+      const raw = window.pywebview.api.get_scene_data();
       const data = JSON.parse(raw);
       if (data.error) {
         info.textContent = '错误: ' + data.error;
@@ -278,9 +282,10 @@ function loadData() {
       initScene(data);
     } catch(e) {
       info.textContent = '数据解析失败: ' + e.message;
+      console.error(e);
     }
   } else {
-    info.textContent = '未连接到Python后端，请通过程序启动3D视图';
+    info.textContent = '未连接到Python后端，请关闭窗口并在程序中重新点击「启动 3D 视图」';
   }
 }
 

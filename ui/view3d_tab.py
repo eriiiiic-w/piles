@@ -113,6 +113,14 @@ class View3DTab:
         self.status_var.set("3D视图正在加载...")
 
         html_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "scene.html")
+        with open(html_path, "r", encoding="utf-8") as f:
+            html_content = f.read()
+
+        scene_data = self._get_scene_data()
+        html_content = html_content.replace(
+            "// DATA_PLACEHOLDER",
+            f"const EMBEDDED_DATA = {scene_data};"
+        )
 
         class Api:
             def __init__(self, tab):
@@ -127,7 +135,7 @@ class View3DTab:
         api = Api(self)
         self.webview_window = webview.create_window(
             "3D 桩基土层视图",
-            html_path,
+            html=html_content,
             js_api=api,
             width=1200,
             height=800,
