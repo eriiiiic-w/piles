@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Select, Button, InputNumber, message, Card, Space, Table, Modal } from 'antd';
-import { predictSingle, predictAll, fetchPiles, fetchLayers, saveMeasured, fetchMeasured, PileItem } from '../api/client';
+import { predictSingle, predictAll, fetchPiles, saveMeasured, fetchMeasured } from '../api/client';
+import type { PileItem } from '../api/client';
 import { usePileStore } from '../store/usePileStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import LayerChart from '../components/charts/LayerChart';
 
 const PredictPage: React.FC = () => {
   const [piles, setPiles] = useState<PileItem[]>([]);
-  const [layers, setLayers] = useState<string[]>([]);
   const [selected, setSelected] = useState<string | undefined>();
   const [measVal, setMeasVal] = useState<number>(0);
   const [selectedLayer, setSelectedLayer] = useState<string | undefined>();
@@ -18,7 +18,6 @@ const PredictPage: React.FC = () => {
 
   useEffect(() => {
     fetchPiles().then(r => setPiles(r.data.piles));
-    fetchLayers().then(r => setLayers(r.data.layers));
   }, []);
 
   const handlePredict = async () => {
@@ -29,7 +28,7 @@ const PredictPage: React.FC = () => {
       const m = await fetchMeasured(selected);
       setMeasuredData(m.data.layers || {});
     } else {
-      message.error(res.data.message || '预测失败');
+      message.error('预测失败');
     }
   };
 

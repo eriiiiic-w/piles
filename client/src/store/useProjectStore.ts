@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { fetchProject, ProjectSummary } from '../api/client';
+import { fetchProject } from '../api/client';
+import type { ProjectSummary } from '../api/client';
 
 interface ProjectState {
   summary: ProjectSummary;

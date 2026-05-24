@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { PredictionResult } from '../api/client';
+import type { PredictionResult } from '../api/client';
 
 interface PileState {
   selectedPileNo: string | null;

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { fetchSettings, updateSettings, SettingsData } from '../api/client';
+import { fetchSettings, updateSettings } from '../api/client';
+import type { SettingsData } from '../api/client';
 
 interface SettingsState {
   settings: SettingsData;

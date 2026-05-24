@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, Button, Select, InputNumber, Card, message, Table, Space } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
-import { uploadGeo, uploadPiles, fetchLayers, fetchPiles, PileItem } from '../api/client';
+import { uploadGeo, uploadPiles, fetchLayers, fetchPiles } from '../api/client';
+import type { PileItem } from '../api/client';
 import { useProjectStore } from '../store/useProjectStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 
