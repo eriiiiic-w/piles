@@ -175,9 +175,9 @@ function setView(dir) {
   const bx = sceneData.bounds.x, by = sceneData.bounds.y, bz = sceneData.bounds.z;
   const cx = (bx[0] + bx[1]) / 2, cy = (by[0] + by[1]) / 2, cz = (bz[0] + bz[1]) / 2;
   const dist = Math.max(bx[1] - bx[0], by[1] - by[0], bz[1] - bz[0]) * 1.2;
-  if (dir === 'front') camera.position.set(cx, cy, cz + dist);
-  else if (dir === 'top') camera.position.set(cx, cy + dist, cz + 0.1);
-  else if (dir === 'side') camera.position.set(cx + dist, cy, cz);
+  if (dir === 'front') camera.position.set(cx + dist, cy, cz);
+  else if (dir === 'top') camera.position.set(cx, cy, cz + dist);
+  else if (dir === 'side') camera.position.set(cx, cy + dist, cz);
   controls.target.set(cx, cy, cz);
   controls.update();
 }
@@ -234,10 +234,48 @@ document.getElementById('btn-top').addEventListener('click', () => setView('top'
 document.getElementById('btn-side').addEventListener('click', () => setView('side'));
 document.getElementById('btn-reset').addEventListener('click', () => resetView());
 
+// Corner gizmo: small XYZ indicator fixed to screen corner
+const gizmoScene = new THREE.Scene();
+const gizmoCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
+gizmoCamera.position.set(1.5, 1.2, 2);
+gizmoCamera.lookAt(0, 0, 0);
+const gizmoAxes = new THREE.AxesHelper(1);
+gizmoScene.add(gizmoAxes);
+
+function makeGizmoLabel(text, x, y, z, color) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  div.style.cssText = `font-size:10px;font-weight:bold;color:${color};`;
+  const label = new CSS2DObject(div);
+  label.position.set(x, y, z);
+  return label;
+}
+gizmoScene.add(makeGizmoLabel('X', 1.1, 0, 0, '#e74c3c'));
+gizmoScene.add(makeGizmoLabel('Y', 0, 1.1, 0, '#2ecc71'));
+gizmoScene.add(makeGizmoLabel('Z', 0, 0, 1.1, '#3498db'));
+
+function renderGizmo() {
+  const w = window.innerWidth, h = window.innerHeight;
+  const size = 80;
+  const x = 15, y = 15;
+  renderer.setViewport(x, y, size, size);
+  renderer.setScissor(x, y, size, size);
+  renderer.setScissorTest(true);
+  renderer.render(gizmoScene, gizmoCamera);
+  renderer.setScissorTest(false);
+  renderer.setViewport(0, 0, w, h);
+}
+
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
   renderer.render(scene, camera);
+
+  const dir = camera.position.clone().sub(controls.target).normalize();
+  gizmoCamera.position.copy(dir.multiplyScalar(3));
+  gizmoCamera.lookAt(0, 0, 0);
+  renderGizmo();
+
   labelRenderer.render(scene, camera);
 }
 
