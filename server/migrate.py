@@ -5,7 +5,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from server.database import SessionLocal, init_db
+from server.database import switch_database, get_db, init_db
 from server.models.geo import GeoLayer
 from server.models.pile import Pile
 from server.models.settings import Setting
@@ -21,8 +21,8 @@ def migrate():
     with open(OLD_JSON, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    init_db()
-    db = SessionLocal()
+    switch_database(os.path.join(os.path.dirname(os.path.dirname(__file__)), "pile_app.db"))
+    db = next(get_db())
 
     count_geo = 0
     for record in data.get("geo_data", []):
