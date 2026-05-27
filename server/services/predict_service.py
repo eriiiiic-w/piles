@@ -100,14 +100,18 @@ def get_scene_data(db: Session) -> dict:
     pile_items = []
 
     SOIL_COLORS = [
-        "#c8b68e", "#b5a67c", "#a2b578", "#8f9e74", "#7c8e70",
-        "#d4c5a0", "#bfb386", "#aaa16c", "#958f52", "#807d38",
-        "#e8dcc8", "#d5c9b3", "#c2b69e", "#afa389", "#9c9074",
+        "#7ec87b", "#8db76d", "#a3a85d", "#b89952", "#c4894a",
+        "#cf7a48", "#d46a4a", "#d45a4e", "#cf4e55", "#c4455e",
+        "#b34067", "#9e3e6e", "#863d71", "#6f3c70", "#5a3a6a",
     ]
+    BEARING_COLOR = "#ff6b35"  # distinct orange for bearing layer
     layer_color_map = {}
     if layer_list:
         for i, name in enumerate(layer_list):
-            layer_color_map[name] = SOIL_COLORS[i % len(SOIL_COLORS)]
+            if name == support_layer:
+                layer_color_map[name] = BEARING_COLOR
+            else:
+                layer_color_map[name] = SOIL_COLORS[i % len(SOIL_COLORS)]
 
     z_min, z_max = 0, 10
     if not geo_df.empty:

@@ -28,23 +28,18 @@ def _write_index(data: list[dict]):
 
 
 def _init_first_project():
-    """Migrate legacy pile_app.db into a default project if it exists."""
+    """Create a default project if no projects exist."""
     index = _read_index()
     if index:
-        # Auto-activate the first project
         target = os.path.join(PROJECTS_DIR, f"{index[0]['id']}.db")
         if os.path.exists(target):
             switch_database(target)
         return
-    legacy_db = os.path.join(os.path.dirname(PROJECTS_DIR), "pile_app.db")
     pid = str(uuid.uuid4())[:8]
     proj = {"id": pid, "name": "默认项目", "created_at": datetime.now().isoformat()}
     index.append(proj)
     _write_index(index)
     target = os.path.join(PROJECTS_DIR, f"{pid}.db")
-    if os.path.exists(legacy_db):
-        import shutil
-        shutil.copy(legacy_db, target)
     switch_database(target)
 
 
