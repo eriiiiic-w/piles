@@ -28,19 +28,18 @@ def _write_index(data: list[dict]):
 
 
 def _init_first_project():
-    """Create a default project if no projects exist."""
+    """Create a default project if no projects exist. Does NOT auto-activate."""
     index = _read_index()
     if index:
-        target = os.path.join(PROJECTS_DIR, f"{index[0]['id']}.db")
-        if os.path.exists(target):
-            switch_database(target)
-        return
+        return  # projects exist, user will choose one to activate
     pid = str(uuid.uuid4())[:8]
     proj = {"id": pid, "name": "默认项目", "created_at": datetime.now().isoformat()}
     index.append(proj)
     _write_index(index)
+    # Create empty db file but don't activate it
     target = os.path.join(PROJECTS_DIR, f"{pid}.db")
-    switch_database(target)
+    switch_database(target)  # briefly switch to create tables, then switch away
+    switch_database(":memory:")  # go back to in-memory so no data shows
 
 
 @router.get("/project", response_model=ProjectSummary)
