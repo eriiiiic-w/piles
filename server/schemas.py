@@ -73,3 +73,18 @@ class SceneDataResponse(BaseModel):
     piles: List[ScenePileItem]
     support_layer: str
     bounds: Dict[str, List[float]]
+
+
+class ProjectInfo(BaseModel):
+    id: str
+    name: str
+    created_at: str
+
+
+class ProjectListResponse(BaseModel):
+    projects: List[ProjectInfo]
+    active_id: Optional[str] = None
+
+
+class CreateProjectRequest(BaseModel):
+    name: str
