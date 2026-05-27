@@ -69,10 +69,17 @@ class ScenePileItem(BaseModel):
     bottom_elev: Optional[float] = None
 
 
+class SoilPlaneItem(BaseModel):
+    name: str
+    elevation: float
+    color: str
+
+
 class SceneDataResponse(BaseModel):
     piles: List[ScenePileItem]
     support_layer: str
     bounds: Dict[str, List[float]]
+    soil_planes: List[SoilPlaneItem] = []
 
 
 class ProjectInfo(BaseModel):

@@ -22,9 +22,11 @@ def predict_single(db: Session, pile_no: str) -> dict | None:
                         s["interp_method"], s["support_layer"],
                         s["support_depth_type"], float(s["support_depth"]))
     result["桩顶标高"] = float(s.get("pile_top_elev", 0.5))
-    # Normalize key names to match PredictionResponse schema
+    # Normalize key names to match frontend schema
     if "持力层进入深度(m)" in result:
         result["持力层进入深度"] = result.pop("持力层进入深度(m)")
+    if "桩径(mm)" in result:
+        result["桩径"] = result.pop("桩径(mm)")
     return result
 
 
@@ -44,6 +46,8 @@ def predict_single_fast(db: Session, pile_no: str) -> dict | None:
     result["桩顶标高"] = float(s.get("pile_top_elev", 0.5))
     if "持力层进入深度(m)" in result:
         result["持力层进入深度"] = result.pop("持力层进入深度(m)")
+    if "桩径(mm)" in result:
+        result["桩径"] = result.pop("桩径(mm)")
     return result
 
 
@@ -80,6 +84,8 @@ def predict_all(db: Session) -> list[dict]:
         r["桩顶标高"] = float(s.get("pile_top_elev", 0.5))
         if "持力层进入深度(m)" in r:
             r["持力层进入深度"] = r.pop("持力层进入深度(m)")
+        if "桩径(mm)" in r:
+            r["桩径"] = r.pop("桩径(mm)")
         results.append(r)
         cache_prediction(db, r, s["interp_method"])
     return results
@@ -98,12 +104,16 @@ def get_scene_data(db: Session) -> dict:
         z_vals = geo_df['土层顶标高'].dropna()
         z_min = float(z_vals.min())
         z_max = float(z_vals.max())
+        layer_groups = {layer: geo_df[geo_df['土层名称'] == layer] for layer in layer_list}
+    else:
+        layer_groups = {}
 
     for p in piles:
         pile_row = {"桩号": p.pile_no, "X": p.x, "Y": p.y, "桩径": p.diameter, "桩型": p.pile_type}
         result = do_predict_fast(geo_df, pile_row, layer_list,
                                  support_layer,
-                                 s["support_depth_type"], float(s["support_depth"]))
+                                 s["support_depth_type"], float(s["support_depth"]),
+                                 layer_groups=layer_groups)
         bottom_elev = None
         if result and result.get("持力层顶标高") is not None:
             sup_elev = result["持力层顶标高"]
@@ -120,6 +130,20 @@ def get_scene_data(db: Session) -> dict:
             "bottom_elev": bottom_elev,
         })
 
+    # Compute soil planes: average elevation per layer
+    SOIL_COLORS = [
+        "#c8b68e", "#b5a67c", "#a2b578", "#8f9e74", "#7c8e70",
+        "#d4c5a0", "#bfb386", "#aaa16c", "#958f52", "#807d38",
+        "#e8dcc8", "#d5c9b3", "#c2b69e", "#afa389", "#9c9074",
+    ]
+    soil_planes = []
+    if not geo_df.empty:
+        layer_names = core_get_layer_list(geo_df)
+        for i, layer in enumerate(layer_names):
+            avg_elev = float(geo_df[geo_df['土层名称'] == layer]['土层顶标高'].mean())
+            color = SOIL_COLORS[i % len(SOIL_COLORS)]
+            soil_planes.append({"name": layer, "elevation": round(avg_elev, 2), "color": color})
+
     return {
         "piles": pile_items,
         "support_layer": support_layer,
@@ -127,5 +151,6 @@ def get_scene_data(db: Session) -> dict:
             "x": [float(geo_df["X"].min()), float(geo_df["X"].max())] if not geo_df.empty else [0, 100],
             "y": [float(geo_df["Y"].min()), float(geo_df["Y"].max())] if not geo_df.empty else [0, 100],
             "z": [z_min, z_max],
-        }
+        },
+        "soil_planes": soil_planes,
     }
