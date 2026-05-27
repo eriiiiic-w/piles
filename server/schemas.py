@@ -67,6 +67,7 @@ class ScenePileItem(BaseModel):
     pile_type: str
     top_elev: float
     bottom_elev: Optional[float] = None
+    bearing_elev: Optional[float] = None
 
 
 class SoilPlaneItem(BaseModel):

@@ -65,8 +65,10 @@ def predict_one(geo_df, pile_row, layer_list, interp_method, support_layer, supp
     return result
 
 
-def predict_one_fast(geo_df, pile_row, layer_list, support_layer, support_depth_type, support_depth_val):
-    """IDW快速预测，供3D场景使用。强制使用IDW。"""
+def predict_one_fast(geo_df, pile_row, layer_list, support_layer, support_depth_type, support_depth_val, layer_groups=None):
+    """IDW快速预测，供3D场景使用。强制使用IDW。
+    layer_groups: 可选, {layer_name: DataFrame} 预分组数据, 避免重复过滤。
+    """
     pile_x = float(pile_row['X'])
     pile_y = float(pile_row['Y'])
     pile_diameter = float(pile_row['桩径'])
@@ -82,9 +84,9 @@ def predict_one_fast(geo_df, pile_row, layer_list, support_layer, support_depth_
     }
 
     for layer in layer_list:
-        layer_data = geo_df[geo_df['土层名称'] == layer]
-        if len(layer_data) < 2:
-            z_pred = round(float(layer_data['土层顶标高'].mean()) if not layer_data.empty else 10.0, 2)
+        layer_data = layer_groups.get(layer) if layer_groups else geo_df[geo_df['土层名称'] == layer]
+        if layer_data is None or len(layer_data) < 2:
+            z_pred = round(float(layer_data['土层顶标高'].mean()) if (layer_data is not None and not layer_data.empty) else 10.0, 2)
         else:
             z_pred = round(idw_interpolate(pile_x, pile_y,
                 layer_data['X'].values, layer_data['Y'].values,

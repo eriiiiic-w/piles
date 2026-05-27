@@ -13,9 +13,20 @@ const GroundPlane = ({ bounds }: GroundPlaneProps) => {
   const cy = (bounds.y[0] + bounds.y[1]) / 2;
 
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[cx, cy, bounds.z[0] - 0.5]}>
+    <mesh
+      rotation={[-Math.PI / 2, 0, 0]}
+      position={[cx, cy, bounds.z[0] - 0.5]}
+      raycast={() => null}
+      renderOrder={-2}
+    >
       <planeGeometry args={[w * 1.2, d * 1.2]} />
-      <meshBasicMaterial color="#dddddd" side={THREE.DoubleSide} transparent opacity={0.25} />
+      <meshBasicMaterial
+        color="#dddddd"
+        side={THREE.DoubleSide}
+        transparent
+        opacity={0.25}
+        depthWrite={false}
+      />
     </mesh>
   );
 };

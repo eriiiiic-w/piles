@@ -1,3 +1,4 @@
+import re
 import tempfile
 import os
 import pandas as pd
@@ -5,6 +6,11 @@ from fastapi import APIRouter, UploadFile, File, Depends, Query
 from sqlalchemy.orm import Session
 from server.database import get_db
 from server.models.pile import Pile
+
+
+def _natural_sort_key(pile_no: str):
+    nums = re.findall(r'\d+', pile_no)
+    return int(nums[0]) if nums else 0
 
 router = APIRouter(prefix="/api/piles", tags=["piles"])
 
@@ -42,7 +48,8 @@ def list_piles(search: str = Query(""), db: Session = Depends(get_db)):
     q = db.query(Pile)
     if search:
         q = q.filter(Pile.pile_no.contains(search))
-    piles = q.order_by(Pile.pile_no).all()
+    piles = q.all()
+    piles.sort(key=lambda p: _natural_sort_key(p.pile_no))
     return {
         "piles": [{
             "pile_no": p.pile_no, "x": p.x, "y": p.y,

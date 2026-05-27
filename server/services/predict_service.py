@@ -115,10 +115,11 @@ def get_scene_data(db: Session) -> dict:
                                  s["support_depth_type"], float(s["support_depth"]),
                                  layer_groups=layer_groups)
         bottom_elev = None
+        bearing_elev = None
         if result and result.get("持力层顶标高") is not None:
-            sup_elev = result["持力层顶标高"]
+            bearing_elev = result["持力层顶标高"]
             sup_depth_raw = result.get("持力层进入深度(m)", 0)
-            bottom_elev = round(sup_elev - sup_depth_raw, 2)
+            bottom_elev = round(bearing_elev - sup_depth_raw, 2)
 
         pile_items.append({
             "id": p.pile_no,
@@ -128,6 +129,7 @@ def get_scene_data(db: Session) -> dict:
             "pile_type": p.pile_type,
             "top_elev": float(s.get("pile_top_elev", 0.5)),
             "bottom_elev": bottom_elev,
+            "bearing_elev": bearing_elev,
         })
 
     # Compute soil planes: average elevation per layer
@@ -144,12 +146,27 @@ def get_scene_data(db: Session) -> dict:
             color = SOIL_COLORS[i % len(SOIL_COLORS)]
             soil_planes.append({"name": layer, "elevation": round(avg_elev, 2), "color": color})
 
+    # Expand bounds to include piles (not just boreholes)
+    if not geo_df.empty:
+        bx_min, bx_max = float(geo_df["X"].min()), float(geo_df["X"].max())
+        by_min, by_max = float(geo_df["Y"].min()), float(geo_df["Y"].max())
+    else:
+        bx_min, bx_max, by_min, by_max = 0, 100, 0, 100
+
+    if piles:
+        px_vals = [p.x for p in piles]
+        py_vals = [p.y for p in piles]
+        bx_min = min(bx_min, min(px_vals))
+        bx_max = max(bx_max, max(px_vals))
+        by_min = min(by_min, min(py_vals))
+        by_max = max(by_max, max(py_vals))
+
     return {
         "piles": pile_items,
         "support_layer": support_layer,
         "bounds": {
-            "x": [float(geo_df["X"].min()), float(geo_df["X"].max())] if not geo_df.empty else [0, 100],
-            "y": [float(geo_df["Y"].min()), float(geo_df["Y"].max())] if not geo_df.empty else [0, 100],
+            "x": [bx_min, bx_max],
+            "y": [by_min, by_max],
             "z": [z_min, z_max],
         },
         "soil_planes": soil_planes,

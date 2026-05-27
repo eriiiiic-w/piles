@@ -53,6 +53,7 @@ export interface SceneData {
     pile_type: string;
     top_elev: number;
     bottom_elev: number | null;
+    bearing_elev: number | null;
   }[];
   support_layer: string;
   bounds: { x: number[]; y: number[]; z: number[] };

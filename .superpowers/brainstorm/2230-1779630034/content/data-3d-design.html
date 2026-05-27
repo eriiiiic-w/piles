@@ -1,0 +1,154 @@
+<h2>SQLite 数据模型 & 3D 交互详细设计</h2>
+<p class="subtitle">最后两个设计环节：数据库表结构 + 3D 场景交互功能清单</p>
+
+<div class="split">
+<div class="mockup" style="flex:1">
+<div class="mockup-header">SQLite 表结构</div>
+<div class="mockup-body" style="font-size:12px;line-height:1.8;font-family:monospace">
+<pre style="background:#1e1e2e;color:#cdd6f4;padding:12px;border-radius:8px;margin:0;overflow-x:auto">
+<strong style="color:#f9e2af">geo_layers</strong>          勘探孔分层数据
+  id, hole_id, x, y, layer_name
+  top_elev, thickness, bottom_elev
+
+<strong style="color:#f9e2af">piles</strong>                 桩基数据
+  id, pile_no, x, y, diameter
+  pile_type, top_elev
+
+<strong style="color:#f9e2af">predictions</strong>          预测结果缓存
+  id, pile_no, layer_name
+  top_elev_pred, bottom_elev_pred
+  method, created_at
+
+<strong style="color:#f9e2af">measured</strong>             实测数据
+  id, pile_no, layer_name
+  measured_elev, actual_depth
+  recorded_at
+
+<strong style="color:#f9e2af">settings</strong>             系统设置
+  id, key, value
+  (support_layer, support_depth
+   depth_type, warning_threshold
+   alarm_threshold, interp_method
+   pile_top_elev)
+
+<strong style="color:#f9e2af">soil_params</strong>          土层承载力参数
+  id, layer_name, qsik, qpk
+
+<strong style="color:#f9e2af">operation_logs</strong>      操作日志
+  id, action, detail, created_at
+</pre>
+</div>
+</div>
+
+<div class="mockup" style="flex:1">
+<div class="mockup-header">与旧 JSON 的对照</div>
+<div class="mockup-body" style="font-size:13px">
+<table style="width:100%;font-size:12px">
+<tr style="background:#f0f0f0"><th style="padding:6px;text-align:left">旧 JSON 字段</th><th style="padding:6px;text-align:left">新 SQLite 表</th></tr>
+<tr><td style="padding:4px 6px">geo_data[]</td><td style="padding:4px 6px">→ geo_layers</td></tr>
+<tr><td style="padding:4px 6px">pile_data[]</td><td style="padding:4px 6px">→ piles</td></tr>
+<tr><td style="padding:4px 6px">measured_data{}</td><td style="padding:4px 6px">→ measured</td></tr>
+<tr><td style="padding:4px 6px">support_layer等</td><td style="padding:4px 6px">→ settings</td></tr>
+<tr><td style="padding:4px 6px">(预测结果)</td><td style="padding:4px 6px">→ predictions (新增)</td></tr>
+<tr><td style="padding:4px 6px">(承载力参数)</td><td style="padding:4px 6px">→ soil_params (新增)</td></tr>
+<tr><td style="padding:4px 6px">(无)</td><td style="padding:4px 6px">→ operation_logs (新增)</td></tr>
+</table>
+<p style="color:#888;font-size:11px;margin-top:8px">predictions 表是新增的预测结果缓存，避免每次页面请求都重复计算。实测数据不再写回 geo_layers（修复报告中指出的数据污染问题）。</p>
+</div>
+</div>
+</div>
+
+<div class="mockup" style="margin-top:16px">
+<div class="mockup-header">3D 交互功能升级清单 (React-Three-Fiber)</div>
+<div class="mockup-body" style="font-size:13px">
+
+<table style="width:100%;border-collapse:collapse">
+<tr style="background:#f0f0f0">
+<th style="padding:8px;text-align:left;width:5%">#</th>
+<th style="padding:8px;text-align:left;width:20%">功能</th>
+<th style="padding:8px;text-align:left;width:15%">实现方式</th>
+<th style="padding:8px;text-align:left">说明</th>
+<th style="padding:8px;text-align:center;width:8%">阶段</th>
+</tr>
+<tr>
+<td style="padding:6px 8px">1</td><td style="padding:6px 8px"><strong>悬停识别+信息浮窗</strong></td>
+<td style="padding:6px 8px">Raycaster + Html</td>
+<td style="padding:6px 8px">鼠标接近桩体自动检测并弹出 Tooltip：桩号、桩径、桩型、预测持力层</td>
+<td style="padding:6px 8px;text-align:center;color:#27ae60">V1</td>
+</tr>
+<tr>
+<td style="padding:6px 8px">2</td><td style="padding:6px 8px"><strong>点击选中+高亮</strong></td>
+<td style="padding:6px 8px">onClick + state</td>
+<td style="padding:6px 8px">点击桩体→轮廓描边(OutlinePass)+右侧抽屉显示完整属性</td>
+<td style="padding:6px 8px;text-align:center;color:#27ae60">V1</td>
+</tr>
+<tr>
+<td style="padding:6px 8px">3</td><td style="padding:6px 8px"><strong>视角切换/书签</strong></td>
+<td style="padding:6px 8px">Camera animation</td>
+<td style="padding:6px 8px">正视/俯视/侧视/重置按钮，相机平滑过渡</td>
+<td style="padding:6px 8px;text-align:center;color:#27ae60">V1</td>
+</tr>
+<tr>
+<td style="padding:6px 8px">4</td><td style="padding:6px 8px"><strong>坐标轴 Gizmo</strong></td>
+<td style="padding:6px 8px">Drei GizmoHelper</td>
+<td style="padding:6px 8px">右上角小坐标轴随视角旋转</td>
+<td style="padding:6px 8px;text-align:center;color:#27ae60">V1</td>
+</tr>
+<tr>
+<td style="padding:6px 8px">5</td><td style="padding:6px 8px"><strong>按桩型着色+图例</strong></td>
+<td style="padding:6px 8px">Material color</td>
+<td style="padding:6px 8px">灌注桩/预制桩等不同颜色，带图例标注</td>
+<td style="padding:6px 8px;text-align:center;color:#27ae60">V1</td>
+</tr>
+<tr>
+<td style="padding:6px 8px">6</td><td style="padding:6px 8px"><strong>半透明地面+持力层面</strong></td>
+<td style="padding:6px 8px">Plane mesh</td>
+<td style="padding:6px 8px">参考面显示，辅助空间定位</td>
+<td style="padding:6px 8px;text-align:center;color:#27ae60">V1</td>
+</tr>
+<tr>
+<td style="padding:6px 8px">7</td><td style="padding:6px 8px"><strong>图层显隐控制</strong></td>
+<td style="padding:6px 8px">visible toggle</td>
+<td style="padding:6px 8px">面板开关：桩体/地面/持力层面/勘探孔 分别显隐</td>
+<td style="padding:6px 8px;text-align:center;color:#f39c12">V2</td>
+</tr>
+<tr>
+<td style="padding:6px 8px">8</td><td style="padding:6px 8px"><strong>透明度调节</strong></td>
+<td style="padding:6px 8px">Opacity slider</td>
+<td style="padding:6px 8px">桩体/地面透明度滑块</td>
+<td style="padding:6px 8px;text-align:center;color:#f39c12">V2</td>
+</tr>
+<tr>
+<td style="padding:6px 8px">9</td><td style="padding:6px 8px"><strong>剖切面工具</strong></td>
+<td style="padding:6px 8px">ClippingPlanes</td>
+<td style="padding:6px 8px">沿 X/Y/Z 方向的剖切面，可拖拽调节位置</td>
+<td style="padding:6px 8px;text-align:center;color:#f39c12">V2</td>
+</tr>
+<tr>
+<td style="padding:6px 8px">10</td><td style="padding:6px 8px"><strong>测量距离/标高</strong></td>
+<td style="padding:6px 8px">Line + Text</td>
+<td style="padding:6px 8px">点击两点显示水平距离和高差</td>
+<td style="padding:6px 8px;text-align:center;color:#f39c12">V2</td>
+</tr>
+<tr>
+<td style="padding:6px 8px">11</td><td style="padding:6px 8px"><strong>截图导出</strong></td>
+<td style="padding:6px 8px">canvas.toDataURL</td>
+<td style="padding:6px 8px">一键导出当前3D视图为PNG图片</td>
+<td style="padding:6px 8px;text-align:center;color:#f39c12">V2</td>
+</tr>
+<tr>
+<td style="padding:6px 8px">12</td><td style="padding:6px 8px"><strong>区域筛选显示</strong></td>
+<td style="padding:6px 8px">Filter control</td>
+<td style="padding:6px 8px">按桩号范围/区域筛选哪些桩可见</td>
+<td style="padding:6px 8px;text-align:center;color:#e74c3c">V3</td>
+</tr>
+<tr>
+<td style="padding:6px 8px">13</td><td style="padding:6px 8px"><strong>勘探孔3D显示</strong></td>
+<td style="padding:6px 8px">Cylinder stack</td>
+<td style="padding:6px 8px">勘探孔作为分段圆柱显示（真实土层分层），可开关</td>
+<td style="padding:6px 8px;text-align:center;color:#e74c3c">V3</td>
+</tr>
+</table>
+<p style="color:#888;font-size:11px;margin-top:8px">V1 = 本次重写必需 · V2 = 报告核心建议 · V3 = 后续迭代</p>
+</div>
+</div>

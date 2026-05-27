@@ -17,7 +17,14 @@ const PredictPage: React.FC = () => {
   const [errorModal, setErrorModal] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchPiles().then(r => setPiles(r.data.piles));
+    fetchPiles().then(r => {
+      const sorted = [...r.data.piles].sort((a, b) => {
+        const na = parseInt(a.pile_no.match(/\d+/)?.[0] || '0');
+        const nb = parseInt(b.pile_no.match(/\d+/)?.[0] || '0');
+        return na - nb;
+      });
+      setPiles(sorted);
+    });
   }, []);
 
   const handlePredict = async () => {
@@ -53,7 +60,15 @@ const PredictPage: React.FC = () => {
 
   const handlePredictAll = async () => {
     const res = await predictAll();
-    message.success(`${res.data.count} 根桩预测完成`);
+    message.success(`${res.data.count} 根桩预测完成 — 结果已缓存，点击"单桩预测"可查看任意桩的预测详情`);
+    if (selected) {
+      const sr = await predictSingle(selected);
+      if (sr.data.ok) {
+        setPrediction(sr.data.result);
+        const m = await fetchMeasured(selected);
+        setMeasuredData(m.data.layers || {});
+      }
+    }
   };
 
   const predTops = currentPrediction ? currentPrediction.土层排序.map(l => currentPrediction.土层预测[l] ?? 0) : [];

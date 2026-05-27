@@ -35,6 +35,8 @@ const SoilPlanes = ({ planes, supportLayer, bounds }: SoilPlanesProps) => {
           key={p.name}
           rotation={[-Math.PI / 2, 0, 0]}
           position={[cx, cy, p.elevation]}
+          raycast={() => null}
+          renderOrder={p.isSupport ? 0 : -1}
         >
           <planeGeometry args={[w * 1.3, d * 1.3]} />
           <meshBasicMaterial
@@ -42,11 +44,12 @@ const SoilPlanes = ({ planes, supportLayer, bounds }: SoilPlanesProps) => {
             side={THREE.DoubleSide}
             transparent
             opacity={p.isSupport ? 0.45 : 0.2}
+            depthWrite={false}
           />
           {p.isSupport && (
-            <lineSegments>
+            <lineSegments renderOrder={1}>
               <edgesGeometry args={[new THREE.PlaneGeometry(w * 1.3, d * 1.3)]} />
-              <lineBasicMaterial color="#ff6b35" linewidth={1} transparent opacity={0.7} />
+              <lineBasicMaterial color="#ff6b35" transparent opacity={0.7} depthTest={false} />
             </lineSegments>
           )}
         </mesh>

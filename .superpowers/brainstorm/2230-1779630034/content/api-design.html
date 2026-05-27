@@ -1,0 +1,47 @@
+<h2>REST API 设计</h2>
+<p class="subtitle">FastAPI 路由规划。保留现有 core/ 模块的计算能力，上层换为 REST 接口。</p>
+
+<div class="mockup">
+<div class="mockup-header">API 端点一览</div>
+<div class="mockup-body" style="font-size:13px;line-height:1.8;font-family:monospace">
+<table style="width:100%;border-collapse:collapse;font-size:13px">
+<tr style="background:#f0f0f0"><th style="padding:8px;text-align:left">模块</th><th style="padding:8px;text-align:left">方法</th><th style="padding:8px;text-align:left">路径</th><th style="padding:8px;text-align:left">说明</th></tr>
+<tr><td style="padding:6px 8px">项目</td><td>GET</td><td>/api/project</td><td>获取当前项目信息、数据摘要</td></tr>
+<tr><td style="padding:6px 8px">地勘</td><td>POST</td><td>/api/geo/upload</td><td>上传地勘 Excel，返回数据概览</td></tr>
+<tr><td style="padding:6px 8px">地勘</td><td>GET</td><td>/api/geo/layers</td><td>获取土层列表（用于下拉菜单）</td></tr>
+<tr><td style="padding:6px 8px">地勘</td><td>GET</td><td>/api/geo/holes</td><td>勘探孔列表（支持分页/搜索）</td></tr>
+<tr><td style="padding:6px 8px">桩基</td><td>POST</td><td>/api/piles/upload</td><td>上传桩基 Excel</td></tr>
+<tr><td style="padding:6px 8px">桩基</td><td>GET</td><td>/api/piles</td><td>桩列表（分页/筛选/搜索）</td></tr>
+<tr><td style="padding:6px 8px">桩基</td><td>GET</td><td>/api/piles/{id}</td><td>单桩详情（含预测结果）</td></tr>
+<tr style="background:#fafafa"><td style="padding:6px 8px">预测</td><td>POST</td><td>/api/predict/single/{id}</td><td>单桩预测（克里金/IDW）</td></tr>
+<tr style="background:#fafafa"><td style="padding:6px 8px">预测</td><td>POST</td><td>/api/predict/all</td><td>批量预测全部桩</td></tr>
+<tr style="background:#fafafa"><td style="padding:6px 8px">预测</td><td>GET</td><td>/api/predict/scene-data</td><td>3D 场景数据（IDW 快速模式）</td></tr>
+<tr><td style="padding:6px 8px">实测</td><td>POST</td><td>/api/measured</td><td>录入某桩某层实测标高</td></tr>
+<tr><td style="padding:6px 8px">实测</td><td>GET</td><td>/api/measured/{pile_id}</td><td>查询某桩实测记录</td></tr>
+<tr style="background:#fafafa"><td style="padding:6px 8px">设置</td><td>PUT</td><td>/api/settings</td><td>更新持力层、阈值、插值方法等</td></tr>
+<tr style="background:#fafafa"><td style="padding:6px 8px">设置</td><td>GET</td><td>/api/settings</td><td>获取当前设置</td></tr>
+<tr><td style="padding:6px 8px">承载力</td><td>POST</td><td>/api/bearing/calc/{pile_id}</td><td>单桩承载力计算</td></tr>
+<tr><td style="padding:6px 8px">承载力</td><td>POST</td><td>/api/bearing/params</td><td>上传土层参数(qsik/qpk)</td></tr>
+<tr><td style="padding:6px 8px">导出</td><td>GET</td><td>/api/export/predictions</td><td>导出全部预测 Excel</td></tr>
+<tr><td style="padding:6px 8px">导出</td><td>GET</td><td>/api/export/measured-holes</td><td>导出实测勘探孔</td></tr>
+<tr><td style="padding:6px 8px">导出</td><td>GET</td><td>/api/export/record/{pile_id}</td><td>导出打桩记录文本</td></tr>
+</table>
+</div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+<div class="pros-cons">
+<div class="pros"><h4>设计原则</h4><ul>
+<li>现有 core/ 模块零修改或极小修改</li>
+<li>API 层只做薄封装：校验输入 → 调 core → 返回 JSON</li>
+<li>文件上传用 multipart/form-data</li>
+<li>大数据导出用 StreamingResponse</li>
+</ul></div>
+<div class="cons"><h4>与旧架构对照</h4><ul>
+<li>DataStore.load_geo_data() → POST /api/geo/upload</li>
+<li>PredictEngine.predict_one() → POST /api/predict/single/{id}</li>
+<li>BearingCalc.calculate() → POST /api/bearing/calc/{id}</li>
+<li>DataStore.save/load() → SQLite 自动持久化</li>
+</ul></div>
+</div>
+</div>
