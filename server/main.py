@@ -3,7 +3,6 @@ import sys
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from server.database import init_db
 
 app = FastAPI(title="桩基土层预测系统", version="2.0.0")
 
@@ -17,7 +16,8 @@ app.add_middleware(
 
 @app.on_event("startup")
 def startup():
-    init_db()
+    from server.api.project import _init_first_project
+    _init_first_project()
 
 
 # Register all API routers
