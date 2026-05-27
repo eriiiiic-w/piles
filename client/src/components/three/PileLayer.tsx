@@ -53,7 +53,8 @@ const PileLayer = (props: PileLayerProps) => {
   const handlePointerMove = useCallback(
     (e: ThreeEvent<PointerEvent>) => {
       e.stopPropagation();
-      onHover(e.object.userData.id);
+      const d = e.object.userData;
+      onHover(`${d.id} | ${d.pileType} | ${d.diameter}mm`);
     },
     [onHover]
   );
