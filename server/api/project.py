@@ -31,6 +31,10 @@ def _init_first_project():
     """Migrate legacy pile_app.db into a default project if it exists."""
     index = _read_index()
     if index:
+        # Auto-activate the first project
+        target = os.path.join(PROJECTS_DIR, f"{index[0]['id']}.db")
+        if os.path.exists(target):
+            switch_database(target)
         return
     legacy_db = os.path.join(os.path.dirname(PROJECTS_DIR), "pile_app.db")
     pid = str(uuid.uuid4())[:8]
@@ -104,17 +108,23 @@ def activate_project(project_id: str):
 @router.delete("/projects/{project_id}")
 def delete_project(project_id: str):
     index = _read_index()
-    index = [p for p in index if p["id"] != project_id]
-    _write_index(index)
     db_path = os.path.join(PROJECTS_DIR, f"{project_id}.db")
-    if os.path.exists(db_path):
-        os.remove(db_path)
-    # If deleted the active project, switch to another or memory
     active_path = get_active_db_path()
-    if active_path and active_path == db_path:
-        if index:
-            new_path = os.path.join(PROJECTS_DIR, f"{index[0]['id']}.db")
+
+    # Switch away first if deleting the active project
+    if active_path and os.path.normpath(active_path) == os.path.normpath(db_path):
+        remaining = [p for p in index if p["id"] != project_id]
+        if remaining:
+            new_path = os.path.join(PROJECTS_DIR, f"{remaining[0]['id']}.db")
             switch_database(new_path)
         else:
             switch_database(":memory:")
+
+    index = [p for p in index if p["id"] != project_id]
+    _write_index(index)
+    if os.path.exists(db_path):
+        try:
+            os.remove(db_path)
+        except OSError:
+            pass
     return {"ok": True}
