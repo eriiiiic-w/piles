@@ -201,10 +201,10 @@ cd client && npm run dev
 
 ## 已知问题
 
-- **IDW 快速预测精度**：3D 视图用 IDW 替代克里金（约 0.2s 完成 760 桩），与正式克里金预测有微小偏差
+- **IDW 快速预测精度**：3D 视图用 IDW 替代克里金，与正式克里金预测有微小偏差
 - **桩底标高**：3D 视图中桩底 = 持力层顶标高(IDW预测) − 进入深度，未设置持力层时无桩底
-- **首次启动**：需要先 `npm run build` 构建前端，之后纯 Python 启动
 - **视角切换按钮**：正视/俯视/侧视按钮 UI 已就位，相机动画逻辑待接入
+- **首次启动**：需要先 `npm run build` 构建前端，之后纯 Python 启动
 
 ## 当前进展
 
@@ -229,3 +229,5 @@ cd client && npm run dev
 - 2026-05-24: **3D视图调试完成（多轮迭代）** — pywebview → 直接注入JSON → webbrowser.open → IDW快速预测 → 仅显示桩体 → 视角修正 → 详情面板 → gizmo → 桩底标高计算
 - 2026-05-24: 更新 CLAUDE.md — 完善项目架构、模块说明、3D 技术细节、已知问题
 - 2026-05-24: **Web 化全量重写完成** — 架构: React 18 + TypeScript + FastAPI + SQLite。22 个后端文件 (server/) + 17 个前端文件 (client/)。7 张数据库表替代 JSON。18 个 REST API 端点。3D 场景用 React-Three-Fiber 重写 (悬停/选中/高亮/Gizmo)。TypeScript 零错误，前端构建成功，4046条地勘+760根桩已迁移。旧 Tkinter 代码移至 legacy/ 保留。设计文档: docs/superpowers/specs/ + plans/
+- 2026-05-27: **8项修复与优化** — (1) 3D场景预分组地勘数据,加载从~5s降至1.5s `server/core/prediction.py`, `server/services/predict_service.py` (2) 俯视按钮去旋转 `client/src/pages/View3DPage.tsx` (3) 未导入数据时显示空状态提示 `client/src/pages/DataPage.tsx` (4) 导入后持续显示文件名 `client/src/pages/DataPage.tsx` (5) 持力层与参数设置增加应用按钮 `client/src/pages/DataPage.tsx` (6) 修复预测键名不匹配(桩径(mm)→桩径) `server/services/predict_service.py` (7) 桩号自然排序(按数字) `server/api/piles.py`, `client/src/pages/DataPage.tsx`, `client/src/pages/PredictPage.tsx` (8) 标题字号增大15→20 `client/src/components/layout/Sidebar.tsx`
+- 2026-05-27: **项目管理系统 + 3D增强** — (1) 多项目独立SQLite数据库隔离, 项目CRUD API, 前端项目选择页 `server/database.py`, `server/api/project.py`, `server/main.py`, `server/schemas.py`, `client/src/api/client.ts`, `client/src/store/useProjectStore.ts`, `client/src/pages/ProjectPage.tsx`, `client/src/App.tsx`, `client/src/components/layout/Sidebar.tsx` (2) 3D土层半透明水平面+持力层高亮 `server/services/predict_service.py`, `server/schemas.py`, `client/src/components/three/SoilPlanes.tsx`, `client/src/components/three/SceneCanvas.tsx` (3) 悬停增强(桩号|桩型|桩径)+底部详情面板 `client/src/components/three/PileLayer.tsx`, `client/src/components/three/PileDetailPanel.tsx`, `client/src/pages/View3DPage.tsx`, `client/src/index.css`
