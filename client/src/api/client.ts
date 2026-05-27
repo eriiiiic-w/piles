@@ -54,6 +54,7 @@ export interface SceneData {
     top_elev: number;
     bottom_elev: number | null;
     bearing_elev: number | null;
+    soil_segments: { name: string; top: number; bottom: number; color: string; is_bearing: boolean }[];
   }[];
   support_layer: string;
   bounds: { x: number[]; y: number[]; z: number[] };

@@ -59,6 +59,13 @@ class ProjectSummary(BaseModel):
     interp_method: str = ""
 
 
+class SoilSegmentItem(BaseModel):
+    name: str
+    top: float
+    bottom: float
+    color: str
+    is_bearing: bool = False
+
 class ScenePileItem(BaseModel):
     id: str
     x: float
@@ -68,6 +75,7 @@ class ScenePileItem(BaseModel):
     top_elev: float
     bottom_elev: Optional[float] = None
     bearing_elev: Optional[float] = None
+    soil_segments: List[SoilSegmentItem] = []
 
 
 class SoilPlaneItem(BaseModel):

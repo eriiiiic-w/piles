@@ -99,6 +99,16 @@ def get_scene_data(db: Session) -> dict:
     support_layer = s["support_layer"]
     pile_items = []
 
+    SOIL_COLORS = [
+        "#c8b68e", "#b5a67c", "#a2b578", "#8f9e74", "#7c8e70",
+        "#d4c5a0", "#bfb386", "#aaa16c", "#958f52", "#807d38",
+        "#e8dcc8", "#d5c9b3", "#c2b69e", "#afa389", "#9c9074",
+    ]
+    layer_color_map = {}
+    if layer_list:
+        for i, name in enumerate(layer_list):
+            layer_color_map[name] = SOIL_COLORS[i % len(SOIL_COLORS)]
+
     z_min, z_max = 0, 10
     if not geo_df.empty:
         z_vals = geo_df['土层顶标高'].dropna()
@@ -107,6 +117,8 @@ def get_scene_data(db: Session) -> dict:
         layer_groups = {layer: geo_df[geo_df['土层名称'] == layer] for layer in layer_list}
     else:
         layer_groups = {}
+
+    pile_top_elev = float(s.get("pile_top_elev", 0.5))
 
     for p in piles:
         pile_row = {"桩号": p.pile_no, "X": p.x, "Y": p.y, "桩径": p.diameter, "桩型": p.pile_type}
@@ -121,32 +133,42 @@ def get_scene_data(db: Session) -> dict:
             sup_depth_raw = result.get("持力层进入深度(m)", 0)
             bottom_elev = round(bearing_elev - sup_depth_raw, 2)
 
+        # Build soil layer segments for this pile
+        soil_segments = []
+        if result and bottom_elev is not None:
+            pile_bottom = bottom_elev
+            for layer_name in layer_list:
+                layer_top = result["土层预测"].get(layer_name)
+                layer_bottom = result["土层底标高预测"].get(layer_name)
+                if layer_top is None or layer_bottom is None:
+                    continue
+                # Intersect pile [pile_top_elev, pile_bottom] with layer [layer_top, layer_bottom]
+                seg_top = min(pile_top_elev, layer_top)
+                seg_bottom = max(pile_bottom, layer_bottom)
+                seg_height = seg_top - seg_bottom
+                if seg_height < 0.15:
+                    continue  # skip very thin segments
+                soil_segments.append({
+                    "name": layer_name,
+                    "top": round(seg_top, 2),
+                    "bottom": round(seg_bottom, 2),
+                    "color": layer_color_map.get(layer_name, "#95a5a6"),
+                    "is_bearing": layer_name == support_layer,
+                })
+
         pile_items.append({
             "id": p.pile_no,
             "x": p.x,
             "y": p.y,
             "diameter": p.diameter,
             "pile_type": p.pile_type,
-            "top_elev": float(s.get("pile_top_elev", 0.5)),
+            "top_elev": pile_top_elev,
             "bottom_elev": bottom_elev,
             "bearing_elev": bearing_elev,
+            "soil_segments": soil_segments,
         })
 
-    # Compute soil planes: average elevation per layer
-    SOIL_COLORS = [
-        "#c8b68e", "#b5a67c", "#a2b578", "#8f9e74", "#7c8e70",
-        "#d4c5a0", "#bfb386", "#aaa16c", "#958f52", "#807d38",
-        "#e8dcc8", "#d5c9b3", "#c2b69e", "#afa389", "#9c9074",
-    ]
-    soil_planes = []
-    if not geo_df.empty:
-        layer_names = core_get_layer_list(geo_df)
-        for i, layer in enumerate(layer_names):
-            avg_elev = float(geo_df[geo_df['土层名称'] == layer]['土层顶标高'].mean())
-            color = SOIL_COLORS[i % len(SOIL_COLORS)]
-            soil_planes.append({"name": layer, "elevation": round(avg_elev, 2), "color": color})
-
-    # Expand bounds to include piles (not just boreholes)
+    # Expand bounds to include piles
     if not geo_df.empty:
         bx_min, bx_max = float(geo_df["X"].min()), float(geo_df["X"].max())
         by_min, by_max = float(geo_df["Y"].min()), float(geo_df["Y"].max())
@@ -169,5 +191,5 @@ def get_scene_data(db: Session) -> dict:
             "y": [by_min, by_max],
             "z": [z_min, z_max],
         },
-        "soil_planes": soil_planes,
+        "soil_planes": [],  # deprecated: pile segments replace soil planes
     }

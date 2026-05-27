@@ -9,7 +9,8 @@ import { useSettingsStore } from '../store/useSettingsStore';
 const DataPage: React.FC = () => {
   const [layers, setLayers] = useState<string[]>([]);
   const [piles, setPiles] = useState<PileItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [pileLoading, setPileLoading] = useState(false);
   const [geoFileName, setGeoFileName] = useState<string | null>(null);
   const [pileFileName, setPileFileName] = useState<string | null>(null);
   const { settings, update } = useSettingsStore();
@@ -59,7 +60,7 @@ const DataPage: React.FC = () => {
   };
 
   const handleGeoUpload = async (file: File) => {
-    setLoading(true);
+    setGeoLoading(true);
     const res = await uploadGeo(file);
     if (res.data.ok) {
       message.success(`${file.name} — ${res.data.message}`);
@@ -70,12 +71,12 @@ const DataPage: React.FC = () => {
     const lr = await fetchLayers();
     setLayers(lr.data.layers);
     refresh();
-    setLoading(false);
+    setGeoLoading(false);
     return false;
   };
 
   const handlePileUpload = async (file: File) => {
-    setLoading(true);
+    setPileLoading(true);
     const res = await uploadPiles(file);
     if (res.data.ok) {
       message.success(`${file.name} — ${res.data.message}`);
@@ -91,7 +92,7 @@ const DataPage: React.FC = () => {
     });
     setPiles(sorted);
     refresh();
-    setLoading(false);
+    setPileLoading(false);
     return false;
   };
 
@@ -112,14 +113,14 @@ const DataPage: React.FC = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ display: 'inline-block', width: 80 }}>地勘数据:</span>
             <Upload beforeUpload={handleGeoUpload} showUploadList={false} accept=".xlsx">
-              <Button icon={<UploadOutlined />} loading={loading}>选择地勘Excel文件</Button>
+              <Button icon={<UploadOutlined />} loading={geoLoading}>选择地勘Excel文件</Button>
             </Upload>
             {geoFileName && <span style={{ color: '#27ae60', fontSize: 13 }}>已导入: {geoFileName}</span>}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ display: 'inline-block', width: 80 }}>桩基数据:</span>
             <Upload beforeUpload={handlePileUpload} showUploadList={false} accept=".xlsx">
-              <Button icon={<UploadOutlined />} loading={loading}>选择桩基Excel文件</Button>
+              <Button icon={<UploadOutlined />} loading={pileLoading}>选择桩基Excel文件</Button>
             </Upload>
             {pileFileName && <span style={{ color: '#27ae60', fontSize: 13 }}>已导入: {pileFileName}</span>}
           </div>
