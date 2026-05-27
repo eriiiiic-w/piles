@@ -100,3 +100,20 @@ export const uploadSoilParams = (file: File) => {
 // Export
 export const exportPredictions = () => api.get('/export/predictions', { responseType: 'blob' });
 export const exportMeasuredHoles = () => api.get('/export/measured-holes', { responseType: 'blob' });
+
+export interface ProjectInfo {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface ProjectListResponse {
+  projects: ProjectInfo[];
+  active_id: string | null;
+}
+
+// Project management
+export const fetchProjects = () => api.get<ProjectListResponse>('/projects');
+export const createProject = (name: string) => api.post<ProjectInfo>('/projects', { name });
+export const activateProject = (id: string) => api.put<void>(`/projects/${id}/activate`);
+export const deleteProject = (id: string) => api.delete<void>(`/projects/${id}`);
