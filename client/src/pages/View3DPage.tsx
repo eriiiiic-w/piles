@@ -5,6 +5,7 @@ import { fetchSceneData, predictSingle } from '../api/client';
 import type { SceneData } from '../api/client';
 import { usePileStore } from '../store/usePileStore';
 import SceneCanvas from '../components/three/SceneCanvas';
+import PileDetailPanel from '../components/three/PileDetailPanel';
 
 const View3DPage = () => {
   const [sceneData, setSceneData] = useState<SceneData | null>(null);
@@ -12,6 +13,8 @@ const View3DPage = () => {
   const [selectedPileId, setSelectedPileId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const { setPrediction } = usePileStore();
+  const [panelVisible, setPanelVisible] = useState(false);
+  const currentPrediction = usePileStore((s) => s.currentPrediction);
 
   const loadScene = useCallback(async () => {
     setLoading(true);
@@ -32,13 +35,14 @@ const View3DPage = () => {
 
   const handlePileClick = async (pileData: any) => {
     setSelectedPileId(pileData.id);
+    setPanelVisible(true);
     try {
       const res = await predictSingle(pileData.id);
       if (res.data.ok) {
         setPrediction(res.data.result);
       }
     } catch {
-      // prediction load failed, but selection still works
+      // prediction load failed
     }
   };
 
@@ -53,7 +57,7 @@ const View3DPage = () => {
         <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#2c3e55' }}>3D 桩基视图</h2>
         <Space>
           <Button size="small" icon={<EyeOutlined />}>正视</Button>
-          <Button size="small" icon={<EyeOutlined />} style={{ transform: 'rotate(90deg)' }}>俯视</Button>
+          <Button size="small" icon={<EyeOutlined />}>俯视</Button>
           <Button size="small" icon={<AimOutlined />}>侧视</Button>
           <Button size="small" icon={<ReloadOutlined />} onClick={loadScene} loading={loading}>刷新</Button>
         </Space>
@@ -81,7 +85,7 @@ const View3DPage = () => {
           borderRadius: 6, fontSize: 12, zIndex: 10,
           boxShadow: '0 1px 4px rgba(0,0,0,0.08)'
         }}>
-          {sceneData ? `桩: ${sceneData.piles.length} · 持力层: ${sceneData.support_layer || '未设'}` : '加载中...'}
+          {sceneData ? `桩: ${sceneData.piles.length} · 土层: ${sceneData.soil_planes?.length || 0} · 持力层: ${sceneData.support_layer || '未设'}` : '加载中...'}
         </div>
 
         {/* Legend */}
@@ -110,6 +114,9 @@ const View3DPage = () => {
           </div>
         )}
       </div>
+
+      {/* Bottom detail panel */}
+      <PileDetailPanel prediction={currentPrediction} visible={panelVisible} />
     </div>
   );
 };
