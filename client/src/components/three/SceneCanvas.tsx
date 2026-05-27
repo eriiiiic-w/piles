@@ -2,6 +2,7 @@ import { Suspense, useRef, useEffect } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import PileLayer from './PileLayer';
+import SoilPlanes from './SoilPlanes';
 import GroundPlane from './GroundPlane';
 
 interface SceneCanvasProps {
@@ -55,13 +56,20 @@ const SceneCanvas = (props: SceneCanvasProps) => {
     >
       <Suspense fallback={null}>
         <SceneSetup sceneData={props.sceneData} />
+        <GroundPlane bounds={props.sceneData.bounds} />
+        {props.sceneData.soil_planes?.length > 0 && (
+          <SoilPlanes
+            planes={props.sceneData.soil_planes}
+            supportLayer={props.sceneData.support_layer}
+            bounds={props.sceneData.bounds}
+          />
+        )}
         <PileLayer
           sceneData={props.sceneData}
           onHover={props.onPileHover}
           onClick={props.onPileClick}
           selectedId={props.selectedPileId}
         />
-        {props.sceneData && <GroundPlane bounds={props.sceneData.bounds} />}
         <GizmoHelper alignment="top-right" margin={[80, 80]}>
           <GizmoViewport axisColors={['#e74c3c', '#27ae60', '#3498db']} labelColor="#333" />
         </GizmoHelper>
