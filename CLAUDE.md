@@ -66,17 +66,19 @@
 ```
 桩基智能体/
 ├── start.py                          # 一键启动脚本 (uvicorn)
+├── requirements.txt                  # Python 依赖
+├── DEPLOY.md                         # 部署与演示指南
 ├── server/                           # FastAPI 后端
 │   ├── main.py                       # 应用入口，注册路由 + 托管静态文件
-│   ├── database.py                   # SQLAlchemy 引擎 + SQLite 连接
-│   ├── schemas.py                    # Pydantic 请求/响应模型
+│   ├── database.py                   # SQLAlchemy 动态引擎 + 多项目切换
+│   ├── schemas.py                    # Pydantic 请求/响应模型 (含土壤分段)
 │   ├── migrate.py                    # JSON → SQLite 一次性迁移脚本
-│   ├── api/                          # REST 路由层 (18 个端点)
-│   │   ├── project.py                # GET /api/project
+│   ├── api/                          # REST 路由层 (20+ 端点)
+│   │   ├── project.py                # 项目 CRUD + 激活/删除 + 启动初始化
 │   │   ├── settings.py               # GET/PUT /api/settings
 │   │   ├── geo.py                    # 地勘上传/查询
 │   │   ├── piles.py                  # 桩基上传/查询
-│   │   ├── predict.py                # 单桩/批量/场景数据预测
+│   │   ├── predict.py                # 单桩/批量/场景数据预测 (含soil_segments)
 │   │   ├── measured.py               # 实测数据录入/查询
 │   │   ├── bearing.py                # 承载力计算 + 参数上传
 │   │   └── export.py                 # Excel 导出
@@ -91,39 +93,45 @@
 │   ├── services/                     # 业务逻辑层
 │   │   ├── settings_service.py
 │   │   ├── geo_service.py
-│   │   └── predict_service.py
+│   │   └── predict_service.py        # 含 get_scene_data() — 每桩逐层分段数据
 │   └── core/                         # 纯计算引擎 (无状态函数)
 │       ├── prediction.py             # 克里金/IDW 插值
 │       └── bearing_capacity.py       # JGJ94-2008 承载力计算
 ├── client/                           # React 18 + TypeScript 前端
 │   ├── src/
-│   │   ├── App.tsx                   # 入口 (ConfigProvider + AppLayout)
+│   │   ├── App.tsx                   # 入口 (项目选择路由 → 工作区)
 │   │   ├── main.tsx                  # ReactDOM 挂载
 │   │   ├── api/client.ts             # Axios API 客户端 (完整类型定义)
 │   │   ├── store/                    # Zustand 状态管理
-│   │   │   ├── useProjectStore.ts
+│   │   │   ├── useProjectStore.ts    # 项目列表 + 激活/创建/删除
 │   │   │   ├── usePileStore.ts
 │   │   │   └── useSettingsStore.ts
 │   │   ├── components/
 │   │   │   ├── layout/               # AppLayout, Sidebar, StatusBar
 │   │   │   ├── charts/LayerChart.tsx  # Recharts 2D 柱状图
 │   │   │   └── three/                # React-Three-Fiber 3D 组件
-│   │   │       ├── SceneCanvas.tsx
-│   │   │       ├── PileLayer.tsx
-│   │   │       └── GroundPlane.tsx
+│   │   │       ├── SceneCanvas.tsx    # R3F Canvas (无GroundPlane)
+│   │   │       ├── PileLayer.tsx      # InstancedMesh 桩体 (1次draw call)
+│   │   │       ├── SoilPlanes.tsx     # 土层水平面 (已废弃,保留备用)
+│   │   │       ├── GroundPlane.tsx    # 基准面 (已废弃)
+│   │   │       └── PileDetailPanel.tsx # 底部详情面板
 │   │   └── pages/
-│   │       ├── DataPage.tsx           # 数据管理
+│   │       ├── ProjectPage.tsx        # 项目选择/创建页
+│   │       ├── DataPage.tsx           # 数据管理 (独立上传loading)
 │   │       ├── PredictPage.tsx        # 预测与实测
 │   │       ├── View3DPage.tsx         # 3D 视图
 │   │       └── RecordPage.tsx         # 记录与承载力
 │   ├── vite.config.ts
 │   └── package.json
+├── projects/                         # 多项目数据库目录 (自动创建)
+│   ├── _index.json                   # 项目索引
+│   └── <project_id>.db               # 各项目独立 SQLite
 ├── legacy/                           # 旧 Tkinter 代码 (保留参考)
-│   ├── main.py
-│   └── ui/
 ├── core/                             # 原始计算模块 (旧版保留)
 ├── assets/scene.html                 # 原始 3D 场景 (旧版保留)
-└── project_full_data.json            # 旧 JSON 数据 (已迁移到 SQLite)
+└── docs/superpowers/                 # 设计文档与实施计划
+    ├── specs/                        # 设计规格
+    └── plans/                        # 实施计划
 ```
 
 ## 核心模块
@@ -132,14 +140,16 @@
 |------|---------|------|
 | `server/core/prediction.py` | `predict_one()`, `predict_one_fast()`, `idw_interpolate()`, `krige_interpolate()` | 无状态插值预测，接受 DataFrame |
 | `server/core/bearing_capacity.py` | `calculate()`, `load_soil_params()`, `export_calc_sheet()` | JGJ94-2008 承载力，函数式接口 |
-| `server/services/predict_service.py` | `predict_single()`, `predict_all()`, `get_scene_data()` | 预测业务编排 + 缓存 |
+| `server/services/predict_service.py` | `predict_single()`, `predict_all()`, `get_scene_data()` | 预测业务编排 + 缓存 + 场景逐层分段数据 |
 | `client/src/components/three/SceneCanvas.tsx` | R3F Canvas | 3D 场景渲染 (WebGL) |
-| `client/src/components/three/PileLayer.tsx` | 760 根桩体圆柱 | 悬停/点击交互 + 选中高亮 |
+| `client/src/components/three/PileLayer.tsx` | InstancedMesh 11263实例 | 1次draw call渲染全部桩体土层分段 |
 
 ## 数据存储
 
-- **数据库**：SQLite (`pile_app.db`)，7 张表，通过 SQLAlchemy ORM 访问
-- **迁移**：`python server/migrate.py` 从旧 JSON 一次性导入
+- **数据库**：多项目独立 SQLite (`projects/<id>.db`)，7 张表，通过 SQLAlchemy ORM 访问
+- **项目切换**：`switch_database()` 动态更换引擎，`projects/_index.json` 管理项目列表
+- **空初始状态**：新项目数据库为空，不自动迁移旧数据，需用户手动导入
+- **迁移**：`python server/migrate.py` 从旧 JSON 一次性导入（仅限旧版兼容）
 - **实测数据**：独立 `measured` 表存储，不再写回地勘数据（修复数据污染问题）
 - **预测缓存**：`predictions` 表避免重复计算
 
@@ -174,14 +184,15 @@ cd client && npm run dev
 
 | 功能 | 实现 | 状态 |
 |------|------|------|
-| 760 根桩体圆柱 (按桩型着色) | PileLayer + colorMap | V1 |
-| 半透明地面参考面 | GroundPlane | V1 |
-| 悬停识别 → 桩号 Tooltip | onPointerMove + state | V1 |
-| 点击选中 → 高亮 + Drawer 联动 | onClick + emissive | V1 |
-| 右上角 Gizmo 坐标轴 | Drei GizmoHelper | V1 |
-| OrbitControls (旋转/平移/缩放) | Drei OrbitControls | V1 |
-| 视角切换 (正视/俯视/侧视) | 按钮已就位 (相机动画待实现) | V1 |
-| 图例 (灌注桩/预制桩/其他) | 固定色块 | V1 |
+| 760 根桩 × 15 土层分段着色 | InstancedMesh (1 draw call) | ✅ |
+| 持力层高亮 (亮橙 + 加粗半径) | is_bearing → #ff6b35, r×1.08 | ✅ |
+| 悬停显示桩号\|桩型\|桩径 + 土层名 | onPointerMove + instanceId | ✅ |
+| 点击选中 → 底部详情面板 | onClick + PileDetailPanel | ✅ |
+| 右上角 Gizmo 坐标轴 | Drei GizmoHelper | ✅ |
+| OrbitControls (旋转/平移/缩放) | Drei OrbitControls | ✅ |
+| 地面参考面 | GroundPlane (已移除) | ❌ |
+| 视角切换 (正视/俯视/侧视) | 按钮已就位 (相机动画待实现) | V2 |
+| 图例 (灌注桩/预制桩/其他) | 固定色块 | V2 |
 | 图层显隐 + 透明度 | 待实现 | V2 |
 | 剖切面 + 测量工具 + 截图导出 | 待实现 | V2 |
 
@@ -202,21 +213,26 @@ cd client && npm run dev
 ## 已知问题
 
 - **IDW 快速预测精度**：3D 视图用 IDW 替代克里金，与正式克里金预测有微小偏差
-- **桩底标高**：3D 视图中桩底 = 持力层顶标高(IDW预测) − 进入深度，未设置持力层时无桩底
+- **桩底标高**：3D 视图中桩底 = 持力层顶标高(IDW预测) − 进入深度，未设置持力层时不显示桩体
 - **视角切换按钮**：正视/俯视/侧视按钮 UI 已就位，相机动画逻辑待接入
-- **首次启动**：需要先 `npm run build` 构建前端，之后纯 Python 启动
+- **项目选择页**：启动时不再自动激活项目，用户需手动点击"进入"
+- **InstancedMesh 容量**：预分配 piles×20 实例，超大工程可能不足
 
 ## 当前进展
 
 - 完成克里金插值预测核心算法
 - 完成 Web 化全量重写：Tkinter → React + FastAPI + SQLite
 - 前后端分离四层架构：前端(React) + API(FastAPI) + 计算(core/) + 存储(SQLite)
-- 18 个 REST API 端点，覆盖全部业务功能
-- 3D 场景从独立 HTML → React-Three-Fiber 组件化
+- 20+ 个 REST API 端点，覆盖全部业务功能 + 项目管理
+- 多项目独立数据库隔离，项目选择/创建/切换/删除
+- 3D 场景用 React-Three-Fiber + InstancedMesh 高性能渲染
+- 桩体按土层分段着色，持力层亮橙高亮
+- 悬停显示桩号/桩型/桩径/土层，点击展开底部详情面板
 - 实测数据独立存储，修复数据污染问题
 - 预测结果缓存到 SQLite，避免重复计算
 - 旧 Tkinter 代码保留在 legacy/ 目录
 - 已部署 3 个 Claude Code Skills（Superpowers、Karpathy Guidelines、ECC）
+- 已编写部署指南 DEPLOY.md + requirements.txt
 
 ## 工作日志
 
@@ -230,4 +246,6 @@ cd client && npm run dev
 - 2026-05-24: 更新 CLAUDE.md — 完善项目架构、模块说明、3D 技术细节、已知问题
 - 2026-05-24: **Web 化全量重写完成** — 架构: React 18 + TypeScript + FastAPI + SQLite。22 个后端文件 (server/) + 17 个前端文件 (client/)。7 张数据库表替代 JSON。18 个 REST API 端点。3D 场景用 React-Three-Fiber 重写 (悬停/选中/高亮/Gizmo)。TypeScript 零错误，前端构建成功，4046条地勘+760根桩已迁移。旧 Tkinter 代码移至 legacy/ 保留。设计文档: docs/superpowers/specs/ + plans/
 - 2026-05-27: **8项修复与优化** — (1) 3D场景预分组地勘数据,加载从~5s降至1.5s `server/core/prediction.py`, `server/services/predict_service.py` (2) 俯视按钮去旋转 `client/src/pages/View3DPage.tsx` (3) 未导入数据时显示空状态提示 `client/src/pages/DataPage.tsx` (4) 导入后持续显示文件名 `client/src/pages/DataPage.tsx` (5) 持力层与参数设置增加应用按钮 `client/src/pages/DataPage.tsx` (6) 修复预测键名不匹配(桩径(mm)→桩径) `server/services/predict_service.py` (7) 桩号自然排序(按数字) `server/api/piles.py`, `client/src/pages/DataPage.tsx`, `client/src/pages/PredictPage.tsx` (8) 标题字号增大15→20 `client/src/components/layout/Sidebar.tsx`
-- 2026-05-27: **项目管理系统 + 3D增强** — (1) 多项目独立SQLite数据库隔离, 项目CRUD API, 前端项目选择页 `server/database.py`, `server/api/project.py`, `server/main.py`, `server/schemas.py`, `client/src/api/client.ts`, `client/src/store/useProjectStore.ts`, `client/src/pages/ProjectPage.tsx`, `client/src/App.tsx`, `client/src/components/layout/Sidebar.tsx` (2) 3D土层半透明水平面+持力层高亮 `server/services/predict_service.py`, `server/schemas.py`, `client/src/components/three/SoilPlanes.tsx`, `client/src/components/three/SceneCanvas.tsx` (3) 悬停增强(桩号|桩型|桩径)+底部详情面板 `client/src/components/three/PileLayer.tsx`, `client/src/components/three/PileDetailPanel.tsx`, `client/src/pages/View3DPage.tsx`, `client/src/index.css`
+- 2026-05-27: **项目管理系统 + 3D增强** — 多项目独立SQLite, 项目CRUD, 前端项目选择页, 3D土层平面+持力层高亮, 悬停增强+底部详情面板
+- 2026-05-27: **4项3D修复** — (1) userData未绑定到mesh导致悬停/点击失效 `PileLayer.tsx` (2) DataPage导入按钮共用loading状态 `DataPage.tsx` (3) 桩体按土层分段着色替代SoilPlanes平面 `predict_service.py`, `PileLayer.tsx`, `schemas.py` (4) 移除GroundPlane灰色基准面 `SceneCanvas.tsx`
+- 2026-05-27: **3项3D修复** — (1) 删除旧数据自动迁移, 启动时不激活项目, 确保空初始状态 `project.py` (2) InstancedMesh替代10640个独立mesh, 1次draw call渲染全部桩体分段 `PileLayer.tsx` (3) 15色渐变配色+持力层#ff6b35亮橙+加粗半径 `predict_service.py` (4) 部署指南DEPLOY.md+requirements.txt
