@@ -56,6 +56,7 @@ export interface SceneData {
   }[];
   support_layer: string;
   bounds: { x: number[]; y: number[]; z: number[] };
+  soil_planes: { name: string; elevation: number; color: string }[];
 }
 
 // Settings
