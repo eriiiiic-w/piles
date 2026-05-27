@@ -2,7 +2,6 @@ import { Suspense, useRef, useEffect } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import PileLayer from './PileLayer';
-import GroundPlane from './GroundPlane';
 
 interface SceneCanvasProps {
   sceneData: any;
@@ -55,7 +54,6 @@ const SceneCanvas = (props: SceneCanvasProps) => {
     >
       <Suspense fallback={null}>
         <SceneSetup sceneData={props.sceneData} />
-        <GroundPlane bounds={props.sceneData.bounds} />
         <PileLayer
           sceneData={props.sceneData}
           onHover={props.onPileHover}
