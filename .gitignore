@@ -8,6 +8,11 @@ node_modules/
 client/dist/
 projects/*.db
 .claude/
+.superpowers/
+.tmp_skills/
 A演示/
 ai_suggestions/
+geo_report/
 桩基土层预测系统.py
+project_full_data.json
+桩编号图纯净版.dwg
