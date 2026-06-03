@@ -1,26 +1,27 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Button, Space, message } from 'antd';
-import { EyeOutlined, AimOutlined, ReloadOutlined } from '@ant-design/icons';
+import { Button, Space, message, Upload, InputNumber } from 'antd';
+import { EyeOutlined, AimOutlined, ReloadOutlined, PictureOutlined } from '@ant-design/icons';
 import { fetchSceneData, predictSingle } from '../api/client';
 import type { SceneData } from '../api/client';
 import { usePileStore } from '../store/usePileStore';
 import SceneCanvas from '../components/three/SceneCanvas';
-import PileDetailPanel from '../components/three/PileDetailPanel';
 
 const View3DPage = () => {
   const [sceneData, setSceneData] = useState<SceneData | null>(null);
   const [hoveredPile, setHoveredPile] = useState<string | null>(null);
   const [selectedPileId, setSelectedPileId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const { setPrediction } = usePileStore();
-  const [panelVisible, setPanelVisible] = useState(false);
-  const currentPrediction = usePileStore((s) => s.currentPrediction);
+  const [cameraView, setCameraView] = useState<'default' | 'top' | 'front' | 'side'>('default');
+  const { setPrediction, openDetailDrawer } = usePileStore();
+  const [refImageUrl, setRefImageUrl] = useState<string | null>(null);
+  const [refPlaneElevation, setRefPlaneElevation] = useState<number>(0);
 
   const loadScene = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetchSceneData();
       setSceneData(res.data);
+      setCameraView('default');
     } catch {
       message.error('加载3D场景数据失败');
     }
@@ -35,11 +36,11 @@ const View3DPage = () => {
 
   const handlePileClick = async (pileData: any) => {
     setSelectedPileId(pileData.id);
-    setPanelVisible(true);
     try {
       const res = await predictSingle(pileData.id);
       if (res.data.ok) {
         setPrediction(res.data.result);
+        openDetailDrawer();
       }
     } catch {
       // prediction load failed
@@ -56,9 +57,29 @@ const View3DPage = () => {
       }}>
         <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#2c3e55' }}>3D 桩基视图</h2>
         <Space>
-          <Button size="small" icon={<EyeOutlined />}>正视</Button>
-          <Button size="small" icon={<EyeOutlined />}>俯视</Button>
-          <Button size="small" icon={<AimOutlined />}>侧视</Button>
+          <Button size="small" icon={<EyeOutlined />} onClick={() => setCameraView('front')}>正视</Button>
+          <Button size="small" icon={<EyeOutlined />} onClick={() => setCameraView('top')}>俯视</Button>
+          <Button size="small" icon={<AimOutlined />} onClick={() => setCameraView('side')}>侧视</Button>
+          <Upload
+            accept="image/*"
+            showUploadList={false}
+            beforeUpload={(file) => {
+              const reader = new FileReader();
+              reader.onload = () => { setRefImageUrl(reader.result as string); message.success(`已加载参考图: ${file.name}`); };
+              reader.readAsDataURL(file);
+              return false;
+            }}
+          >
+            <Button size="small" icon={<PictureOutlined />}>CAD平面图</Button>
+          </Upload>
+          {refImageUrl && (
+            <>
+              <span style={{ fontSize: 12, color: '#888' }}>底面标高:</span>
+              <InputNumber size="small" style={{ width: 70 }} value={refPlaneElevation}
+                onChange={(v) => setRefPlaneElevation(v ?? 0)} step={1} />
+              <Button size="small" danger onClick={() => setRefImageUrl(null)}>清除</Button>
+            </>
+          )}
           <Button size="small" icon={<ReloadOutlined />} onClick={loadScene} loading={loading}>刷新</Button>
         </Space>
       </div>
@@ -107,6 +128,9 @@ const View3DPage = () => {
             onPileHover={handlePileHover}
             onPileClick={handlePileClick}
             selectedPileId={selectedPileId}
+            cameraView={cameraView}
+            refImageUrl={refImageUrl}
+            refPlaneElevation={refPlaneElevation}
           />
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#999' }}>
@@ -115,8 +139,6 @@ const View3DPage = () => {
         )}
       </div>
 
-      {/* Bottom detail panel */}
-      <PileDetailPanel prediction={currentPrediction} visible={panelVisible} />
     </div>
   );
 };

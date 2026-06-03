@@ -10,6 +10,7 @@ class SettingUpdate(BaseModel):
     alarm_threshold: Optional[float] = None
     interp_method: Optional[str] = None
     pile_top_elev: Optional[float] = None
+    safety_factor: Optional[float] = None
 
 
 class SettingResponse(BaseModel):
@@ -20,6 +21,7 @@ class SettingResponse(BaseModel):
     alarm_threshold: float = 0.5
     interp_method: str = "克里金法"
     pile_top_elev: float = 0.5
+    safety_factor: float = 2.0
 
 
 class MeasuredCreate(BaseModel):

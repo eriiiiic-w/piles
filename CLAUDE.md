@@ -186,13 +186,14 @@ cd client && npm run dev
 |------|------|------|
 | 760 根桩 × 15 土层分段着色 | InstancedMesh (1 draw call) | ✅ |
 | 持力层高亮 (亮橙 + 加粗半径) | is_bearing → #ff6b35, r×1.08 | ✅ |
-| 悬停显示桩号\|桩型\|桩径 + 土层名 | onPointerMove + instanceId | ✅ |
-| 点击选中 → 底部详情面板 | onClick + PileDetailPanel | ✅ |
+| 悬停显示桩号\|桩型\|桩径 + 土层名 | onPointerOver + instanceId | ✅ |
+| 点击选中 → 右侧详情抽屉 | onClick → openDetailDrawer (AppLayout Drawer) | ✅ |
 | 右上角 Gizmo 坐标轴 | Drei GizmoHelper | ✅ |
 | OrbitControls (旋转/平移/缩放) | Drei OrbitControls | ✅ |
-| 地面参考面 | GroundPlane (已移除) | ❌ |
-| 视角切换 (正视/俯视/侧视) | 按钮已就位 (相机动画待实现) | V2 |
-| 图例 (灌注桩/预制桩/其他) | 固定色块 | V2 |
+| 视角切换 (正视/俯视/侧视) | cameraView prop + 临时禁用damping | ✅ |
+| CAD平面图参考叠加 | ReferencePlane 半透明贴图 (俯视可见) | ✅ |
+| 图例 (灌注桩/预制桩/其他) | 固定色块 | ✅ |
+| 项目切换 | Sidebar底部"切换项目"按钮 | ✅ |
 | 图层显隐 + 透明度 | 待实现 | V2 |
 | 剖切面 + 测量工具 + 截图导出 | 待实现 | V2 |
 
@@ -214,25 +215,29 @@ cd client && npm run dev
 
 - **IDW 快速预测精度**：3D 视图用 IDW 替代克里金，与正式克里金预测有微小偏差
 - **桩底标高**：3D 视图中桩底 = 持力层顶标高(IDW预测) − 进入深度，未设置持力层时不显示桩体
-- **视角切换按钮**：正视/俯视/侧视按钮 UI 已就位，相机动画逻辑待接入
-- **项目选择页**：启动时不再自动激活项目，用户需手动点击"进入"
 - **InstancedMesh 容量**：预分配 piles×20 实例，超大工程可能不足
+- **CAD参考图**：不支持直接导入DWG，需先导出为PNG/JPG再上传叠加
 
 ## 当前进展
 
-- 完成克里金插值预测核心算法
-- 完成 Web 化全量重写：Tkinter → React + FastAPI + SQLite
+- 完成克里金插值预测核心算法（Ordinary Kriging + IDW）
+- 完成 Web 化全量重写：Tkinter → React 18 + FastAPI + SQLite
 - 前后端分离四层架构：前端(React) + API(FastAPI) + 计算(core/) + 存储(SQLite)
-- 20+ 个 REST API 端点，覆盖全部业务功能 + 项目管理
-- 多项目独立数据库隔离，项目选择/创建/切换/删除
-- 3D 场景用 React-Three-Fiber + InstancedMesh 高性能渲染
+- 25+ 个 REST API 端点，覆盖全部业务功能 + 项目管理 + 承载力计算
+- 多项目独立数据库隔离，项目选择/创建/切换/删除（Sidebar 一键切换）
+- 3D 场景用 React-Three-Fiber + InstancedMesh 高性能渲染（1 draw call）
 - 桩体按土层分段着色，持力层亮橙高亮
-- 悬停显示桩号/桩型/桩径/土层，点击展开底部详情面板
-- 实测数据独立存储，修复数据污染问题
-- 预测结果缓存到 SQLite，避免重复计算
+- 悬停显示桩号/桩型/桩径/土层，点击弹出右侧详情抽屉（完整土层表格）
+- 正视/俯视/侧视一键切换，CAD平面图参考叠加（俯视可见）
+- 实测数据独立存储 + 自动反馈为虚拟勘探孔（提升后续预测精度）
+- 预测结果缓存到 SQLite + 批量克里金优化（760桩仅15次Kriging构建）
+- 承载力计算（JGJ94-2008）：单桩/批量、手动逐层参数、qsik/qpk Excel导入、计算结果导出
+- 2D 剖面图：堆叠柱状图显示真实标高 + 桩体叠加 + 标高标签
+- 打桩记录自动生成 + 导出，施工日志，预测结果Excel导出
+- 承载力安全系数可配置，持力层预警/报警阈值
 - 旧 Tkinter 代码保留在 legacy/ 目录
 - 已部署 3 个 Claude Code Skills（Superpowers、Karpathy Guidelines、ECC）
-- 已编写部署指南 DEPLOY.md + requirements.txt
+- 已编写部署指南 DEPLOY.md + requirements.txt + .gitignore
 
 ## 工作日志
 
@@ -248,4 +253,8 @@ cd client && npm run dev
 - 2026-05-27: **8项修复与优化** — (1) 3D场景预分组地勘数据,加载从~5s降至1.5s `server/core/prediction.py`, `server/services/predict_service.py` (2) 俯视按钮去旋转 `client/src/pages/View3DPage.tsx` (3) 未导入数据时显示空状态提示 `client/src/pages/DataPage.tsx` (4) 导入后持续显示文件名 `client/src/pages/DataPage.tsx` (5) 持力层与参数设置增加应用按钮 `client/src/pages/DataPage.tsx` (6) 修复预测键名不匹配(桩径(mm)→桩径) `server/services/predict_service.py` (7) 桩号自然排序(按数字) `server/api/piles.py`, `client/src/pages/DataPage.tsx`, `client/src/pages/PredictPage.tsx` (8) 标题字号增大15→20 `client/src/components/layout/Sidebar.tsx`
 - 2026-05-27: **项目管理系统 + 3D增强** — 多项目独立SQLite, 项目CRUD, 前端项目选择页, 3D土层平面+持力层高亮, 悬停增强+底部详情面板
 - 2026-05-27: **4项3D修复** — (1) userData未绑定到mesh导致悬停/点击失效 `PileLayer.tsx` (2) DataPage导入按钮共用loading状态 `DataPage.tsx` (3) 桩体按土层分段着色替代SoilPlanes平面 `predict_service.py`, `PileLayer.tsx`, `schemas.py` (4) 移除GroundPlane灰色基准面 `SceneCanvas.tsx`
-- 2026-05-27: **3项3D修复** — (1) 删除旧数据自动迁移, 启动时不激活项目, 确保空初始状态 `project.py` (2) InstancedMesh替代10640个独立mesh, 1次draw call渲染全部桩体分段 `PileLayer.tsx` (3) 15色渐变配色+持力层#ff6b35亮橙+加粗半径 `predict_service.py` (4) 部署指南DEPLOY.md+requirements.txt
+- 2026-06-03: **承载力计算全面修复 + 功能对齐原始Tkinter** (多轮迭代) —
+  *核心算法修复*: `server/core/bearing_capacity.py`(分段厚度算法重写—修复min/max颠倒Bug), `server/api/bearing.py`(重写:support_layer传参修复+批量/手动端点+GET params), `server/api/measured.py`(实测反馈虚拟勘探孔), `server/api/export.py`(key名修复), `server/services/settings_service.py`+`server/schemas.py`+`server/api/settings.py`(safety_factor可配置)
+  *前端修复与增强*: `SceneCanvas.tsx`(camera常量+临时禁用damping修复视角切换), `LayerChart.tsx`(堆叠柱状图+标高标签+桩体叠加), `ReferencePlane.tsx`(新建—CAD图片参考面), `useProjectStore.ts`(文件名持久化+exitProject), `usePileStore.ts`(detailDrawerOpen), `useSettingsStore.ts`(safety_factor), `AppLayout.tsx`(Drawer详细桩信息+onExit), `Sidebar.tsx`(切换项目按钮), `App.tsx`(onExit回调), `DataPage.tsx`(导出实测勘探孔+store文件名), `PredictPage.tsx`(导出预测Excel+桩顶标高+实测进入持力层深度), `RecordPage.tsx`(完全重写:手动逐层参数+批量计算+打桩记录导出+施工日志+承载力导出), `PileDetailPanel.tsx`(废弃—改为Drawer), `client.ts`(新增calcAllBearing/getSoilParams/updateSoilParam/safety_factor), `.gitignore`(补充排除项)
+- 2026-06-03: **剖面图标签+间距修复** — `<LabelList>`→`<Bar label>`修复标签不显示，加防裁切逻辑(y<18柱内显示)，实测土层也加标签，height 420→550，barCategoryGap=3/barGap=2缩紧间距 `client/src/components/charts/LayerChart.tsx`
+- 2026-05-27: **6项审计优化** (基于Gemini+专家两份审计报告) — (1) 新增 `predict_batch` 批量克里金,11400次→15次Kriging构建 `server/core/prediction.py` (2) `cache_predictions_bulk` 单事务批量写入替代逐桩commit `server/services/predict_service.py` (3) `dispose_engine()` 释放SQLite连接池,修复Windows文件锁定 `server/database.py` (4) 删除项目前调用dispose_engine避免PermissionError `server/api/project.py` (5) `onPointerMove`→`onPointerOver` 减少raycasting开销 `client/src/components/three/PileLayer.tsx` (6) 接线cameraView属性,正视/俯视/侧视按钮生效 `client/src/components/three/SceneCanvas.tsx`, `client/src/pages/View3DPage.tsx` (7) 统一字段名桩径(mm)→桩径消除service层key重命名

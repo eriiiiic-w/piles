@@ -28,6 +28,7 @@ class BearingResult:
     Quk: float
     Ra: float
     layer_details: list = field(default_factory=list)
+    missing_layers: list = field(default_factory=list)
     passes_check: bool = True
 
 
@@ -52,21 +53,23 @@ def load_soil_params(file_path):
 
 
 def calculate(pile_row, prediction_result, soil_params, support_layer, safety_factor=2.0):
-    """计算单桩竖向承载力。pile_row: dict with 桩号,桩径. prediction_result: dict from predict_one. soil_params: dict[layer_name]->SoilParams. Returns BearingResult or None."""
+    """计算单桩竖向承载力。pile_row: dict with 桩号,桩径. prediction_result: dict from predict_one. soil_params: dict[layer_name]->SoilParams. support_layer: 持力层名称(用于查qpk). Returns BearingResult or None."""
     if prediction_result is None:
         return None
 
     pile_no = prediction_result.get("桩号", str(pile_row.get('桩号', '?')))
     diameter_mm = float(pile_row['桩径'])
     diameter_m = diameter_mm / 1000.0
-    u = np.pi * diameter_m
-    Ap = np.pi * (diameter_m ** 2) / 4.0
+    # 与原始算法一致: u = round(π*d, 3), Ap = round(π*d²/4, 4)
+    u = round(float(np.pi * diameter_m), 3)
+    Ap = round(float(np.pi * (diameter_m ** 2) / 4.0), 4)
 
     pile_top = prediction_result.get("桩顶标高", 0.5)
     support_elev = prediction_result.get("持力层顶标高", pile_top - 20)
     if isinstance(support_elev, str):
         support_elev = pile_top - 20
-    pile_bottom = support_elev - prediction_result.get("持力层进入深度(m)", 0)
+    support_depth = prediction_result.get("持力层进入深度", 0)
+    pile_bottom = support_elev - support_depth
     pile_length = pile_top - pile_bottom
 
     layer_list = prediction_result["土层排序"]
@@ -75,30 +78,36 @@ def calculate(pile_row, prediction_result, soil_params, support_layer, safety_fa
 
     Qsk = 0.0
     details = []
+    missing_layers = []
 
     for layer_name in layer_list:
         top = layers[layer_name]
         bottom = bottoms[layer_name]
-        seg_top = max(top, pile_bottom)
-        seg_bottom = min(bottom, pile_bottom)
-        if seg_bottom > seg_top:
-            seg_bottom, seg_top = seg_top, seg_bottom
-        thickness = max(0, seg_top - seg_bottom)
+        # 与原始 get_pile_segment_thicknesses 一致：
+        # overlap_top = min(pile_top, lay_top), overlap_bottom = max(pile_bottom, lay_bottom)
+        overlap_top = min(pile_top, top)
+        overlap_bottom = max(pile_bottom, bottom)
+        thickness = max(0, round(overlap_top - overlap_bottom, 2))
 
         sp = soil_params.get(layer_name, SoilParams(layer_name=layer_name, qsik=0, qpk=0))
-        side_res = u * sp.qsik * thickness
+        if sp.qsik <= 0 and thickness > 0:
+            missing_layers.append(layer_name)
+        # 侧阻力 = qsik * 厚度 * 桩周长 (与原始公式一致)
+        side_res = round(u * sp.qsik * thickness, 2) if thickness > 0 else 0
         Qsk += side_res
         details.append(LayerDetail(
             layer_name=layer_name,
-            thickness=round(thickness, 2),
+            thickness=thickness,
             qsik=sp.qsik,
-            side_resistance=round(side_res, 2)
+            side_resistance=side_res
         ))
 
+    # 端阻力：从持力层名称查找 qpk (与原始 self.end_resistance.get(sup_name, 0) 一致)
     sp_end = soil_params.get(support_layer, SoilParams(layer_name=support_layer, qsik=0, qpk=0))
-    Qpk = sp_end.qpk * Ap
+    Qpk = round(sp_end.qpk * Ap, 2)
     Quk = Qsk + Qpk
-    Ra = Quk / safety_factor
+    Ra = round(Quk / safety_factor, 2)
+    passes_check = len(missing_layers) == 0
 
     return BearingResult(
         pile_no=pile_no,
@@ -109,7 +118,8 @@ def calculate(pile_row, prediction_result, soil_params, support_layer, safety_fa
         Quk=round(Quk, 2),
         Ra=round(Ra, 2),
         layer_details=details,
-        passes_check=True
+        missing_layers=missing_layers,
+        passes_check=passes_check
     )
 
 
@@ -126,7 +136,8 @@ def export_calc_sheet(result):
     lines.append(f"桩号: {result.pile_no}")
     lines.append(f"桩径: {result.pile_diameter_mm} mm = {result.pile_diameter_mm/1000:.2f} m")
     lines.append(f"桩长: {result.pile_length_m} m")
-    lines.append(f"安全系数 K = 2.0")
+    k = round(result.Quk / result.Ra, 1) if result.Ra > 0 else 2.0
+    lines.append(f"安全系数 K = {k}")
     lines.append("")
     lines.append("-" * 50)
     lines.append(f"{'土层名称':<12} {'厚度/m':<8} {'qsik/kPa':<10} {'侧阻力/kN':<12}")
@@ -138,7 +149,7 @@ def export_calc_sheet(result):
     lines.append(f"总侧阻力 Qsk = {result.Qsk:.2f} kN")
     lines.append(f"总端阻力 Qpk = {result.Qpk:.2f} kN")
     lines.append(f"极限承载力 Quk = {result.Quk:.2f} kN")
-    lines.append(f"承载力特征值 Ra = Quk/2 = {result.Ra:.2f} kN")
+    lines.append(f"承载力特征值 Ra = Quk/{k:.0f} = {result.Ra:.2f} kN")
     lines.append("")
     lines.append("=" * 70)
     lines.append("  计算人: ________  复核人: ________  日期: ________")

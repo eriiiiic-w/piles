@@ -20,6 +20,7 @@ export interface SettingsData {
   alarm_threshold: number;
   interp_method: string;
   pile_top_elev: number;
+  safety_factor: number;
 }
 
 export interface PileItem {
@@ -95,6 +96,10 @@ export const fetchMeasured = (pileNo: string) =>
 
 // Bearing
 export const calcBearing = (pileNo: string) => api.post(`/bearing/calc/${pileNo}`);
+export const calcAllBearing = () => api.post('/bearing/calc-all');
+export const getSoilParams = () => api.get('/bearing/params');
+export const updateSoilParam = (layerName: string, qsik?: number, qpk?: number) =>
+  api.put('/bearing/params', { layer_name: layerName, qsik, qpk });
 export const uploadSoilParams = (file: File) => {
   const fd = new FormData(); fd.append('file', file);
   return api.post('/bearing/params', fd);

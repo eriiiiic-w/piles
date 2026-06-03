@@ -1,14 +1,15 @@
 import React from 'react';
-import { Menu } from 'antd';
-import { DatabaseOutlined, BarChartOutlined, AimOutlined, FileTextOutlined } from '@ant-design/icons';
+import { Menu, Button } from 'antd';
+import { DatabaseOutlined, BarChartOutlined, AimOutlined, FileTextOutlined, SwapOutlined } from '@ant-design/icons';
 import { useProjectStore } from '../../store/useProjectStore';
 
 interface SidebarProps {
   activeTab: string;
   onTabChange: (key: string) => void;
+  onExit: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, onExit }) => {
   const activeId = useProjectStore((s) => s.activeId);
   const projects = useProjectStore((s) => s.projects);
   const activeProject = projects.find(p => p.id === activeId);
@@ -37,6 +38,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange }) => {
         items={items}
         style={{ flex: 1, borderRight: 0 }}
       />
+      <div style={{ padding: '12px', borderTop: '1px solid #e8e8e8' }}>
+        <Button block icon={<SwapOutlined />} onClick={onExit}>切换项目</Button>
+      </div>
     </div>
   );
 };

@@ -30,7 +30,7 @@ function App() {
 
   return (
     <ConfigProvider locale={zhCN}>
-      {inProject ? <AppLayout /> : <ProjectPage onEnter={() => setInProject(true)} />}
+      {inProject ? <AppLayout onExit={() => { setInProject(false); }} /> : <ProjectPage onEnter={() => setInProject(true)} />}
     </ConfigProvider>
   );
 }

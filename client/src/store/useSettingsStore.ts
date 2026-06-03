@@ -12,7 +12,8 @@ interface SettingsState {
 export const useSettingsStore = create<SettingsState>((set) => ({
   settings: {
     support_layer: '', support_depth: 1.5, support_depth_type: '直接输入',
-    warning_threshold: 0.3, alarm_threshold: 0.5, interp_method: '克里金法', pile_top_elev: 0.5
+    warning_threshold: 0.3, alarm_threshold: 0.5, interp_method: '克里金法',
+    pile_top_elev: 0.5, safety_factor: 2.0
   },
   loading: false,
   load: async () => {

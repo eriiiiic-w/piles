@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Select, Button, InputNumber, message, Card, Space, Table, Modal } from 'antd';
-import { predictSingle, predictAll, fetchPiles, saveMeasured, fetchMeasured } from '../api/client';
+import { predictSingle, predictAll, fetchPiles, saveMeasured, fetchMeasured, exportPredictions } from '../api/client';
 import type { PileItem } from '../api/client';
 import { usePileStore } from '../store/usePileStore';
 import { useSettingsStore } from '../store/useSettingsStore';
@@ -10,10 +10,11 @@ const PredictPage: React.FC = () => {
   const [piles, setPiles] = useState<PileItem[]>([]);
   const [selected, setSelected] = useState<string | undefined>();
   const [measVal, setMeasVal] = useState<number>(0);
+  const [actualDepth, setActualDepth] = useState<number>(0);
   const [selectedLayer, setSelectedLayer] = useState<string | undefined>();
   const [measuredData, setMeasuredData] = useState<Record<string, { measured_elev: number }>>({});
   const { currentPrediction, setPrediction } = usePileStore();
-  const settings = useSettingsStore((s) => s.settings);
+  const { settings, update: updateSetting } = useSettingsStore();
   const [errorModal, setErrorModal] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,11 +42,18 @@ const PredictPage: React.FC = () => {
 
   const handleSaveMeasured = async () => {
     if (!selected || !selectedLayer) return;
-    await saveMeasured({ pile_no: selected, layer_name: selectedLayer, measured_elev: measVal });
+    // 与原始程序一致：持力层额外记录实测进入深度
+    const isSupport = selectedLayer === settings.support_layer;
+    await saveMeasured({
+      pile_no: selected,
+      layer_name: selectedLayer,
+      measured_elev: measVal,
+      actual_depth: isSupport ? actualDepth : undefined,
+    });
     message.success('实测数据已保存');
     const m = await fetchMeasured(selected);
     setMeasuredData(m.data.layers || {});
-    if (currentPrediction && selectedLayer === settings.support_layer) {
+    if (currentPrediction && isSupport) {
       const pred = currentPrediction.土层预测[selectedLayer];
       if (pred !== undefined) {
         const err = Math.abs(measVal - pred);
@@ -79,28 +87,58 @@ const PredictPage: React.FC = () => {
     <div style={{ padding: 24 }}>
       <h2 style={{ marginBottom: 24, fontSize: 18, fontWeight: 700, color: '#2c3e55' }}>预测与实测管理</h2>
 
-      <Space style={{ marginBottom: 16 }}>
+      <Space style={{ marginBottom: 16 }} wrap>
         <span>桩号:</span>
         <Select style={{ width: 150 }} showSearch value={selected} onChange={setSelected}
           options={piles.map(p => ({ label: p.pile_no, value: p.pile_no }))}
           filterOption={(input, option) => (option?.label as string)?.includes(input)} />
         <Button type="primary" onClick={handlePredict}>单桩预测</Button>
         <Button onClick={handlePredictAll}>全部预测</Button>
+        <span style={{ marginLeft: 16 }}>桩顶标高(m):</span>
+        <InputNumber style={{ width: 80 }} value={settings.pile_top_elev}
+          onChange={async (v) => {
+            if (v != null) await updateSetting({ pile_top_elev: v });
+          }} />
+        <Button onClick={async () => {
+          try {
+            const res = await exportPredictions();
+            const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a'); a.href = url; a.download = '全部预测结果.xlsx'; a.click();
+            window.URL.revokeObjectURL(url);
+          } catch { message.error('导出失败'); }
+        }}>导出全部预测Excel</Button>
       </Space>
 
       {currentPrediction && (
         <>
           <Card title={`${currentPrediction.桩号} 土层剖面图`} style={{ marginBottom: 16 }}>
-            <LayerChart layers={currentPrediction.土层排序} predictedTops={predTops} predictedBottoms={predBots} measuredTops={measTops} />
+            <LayerChart
+              layers={currentPrediction.土层排序}
+              predictedTops={predTops}
+              predictedBottoms={predBots}
+              measuredTops={measTops}
+              pileTop={currentPrediction.桩顶标高}
+              pileBottom={currentPrediction.持力层顶标高 != null ? (currentPrediction.持力层顶标高 - (currentPrediction.持力层进入深度 || 0)) : undefined}
+            />
           </Card>
 
           <Card title="实测数据录入" style={{ marginBottom: 16 }}>
-            <Space>
+            <Space wrap>
               <span>土层:</span>
               <Select style={{ width: 150 }} value={selectedLayer} onChange={setSelectedLayer}
-                options={currentPrediction.土层排序.map(l => ({ label: l, value: l }))} />
-              <span>实测标高(m):</span>
+                options={currentPrediction.土层排序.map(l => {
+                  const hasMeas = measuredData[l]?.measured_elev != null;
+                  return { label: l + (hasMeas ? ' (已测)' : ''), value: l };
+                })} />
+              <span>实测顶标高(m):</span>
               <InputNumber style={{ width: 120 }} value={measVal} onChange={(v) => setMeasVal(v ?? 0)} />
+              {selectedLayer === settings.support_layer && (
+                <>
+                  <span style={{ color: '#e67e22' }}>实测进入持力层深度(m):</span>
+                  <InputNumber style={{ width: 120 }} value={actualDepth} onChange={(v) => setActualDepth(v ?? 0)} />
+                </>
+              )}
               <Button type="primary" onClick={handleSaveMeasured}>确认录入</Button>
             </Space>
           </Card>

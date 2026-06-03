@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Upload, Button, Select, InputNumber, Card, message, Table, Space } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
-import { uploadGeo, uploadPiles, fetchLayers, fetchPiles } from '../api/client';
+import { uploadGeo, uploadPiles, fetchLayers, fetchPiles, exportMeasuredHoles } from '../api/client';
 import type { PileItem } from '../api/client';
 import { useProjectStore } from '../store/useProjectStore';
 import { useSettingsStore } from '../store/useSettingsStore';
@@ -11,10 +11,8 @@ const DataPage: React.FC = () => {
   const [piles, setPiles] = useState<PileItem[]>([]);
   const [geoLoading, setGeoLoading] = useState(false);
   const [pileLoading, setPileLoading] = useState(false);
-  const [geoFileName, setGeoFileName] = useState<string | null>(null);
-  const [pileFileName, setPileFileName] = useState<string | null>(null);
   const { settings, update } = useSettingsStore();
-  const refresh = useProjectStore((s) => s.refresh);
+  const { refresh, geoFileName, setGeoFileName, pileFileName, setPileFileName } = useProjectStore();
 
   // Local form state for settings
   const [localSupportLayer, setLocalSupportLayer] = useState(settings.support_layer);
@@ -116,6 +114,15 @@ const DataPage: React.FC = () => {
               <Button icon={<UploadOutlined />} loading={geoLoading}>选择地勘Excel文件</Button>
             </Upload>
             {geoFileName && <span style={{ color: '#27ae60', fontSize: 13 }}>已导入: {geoFileName}</span>}
+            <Button size="small" onClick={async () => {
+              try {
+                const res = await exportMeasuredHoles();
+                const blob = new Blob([res.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = '实测勘探孔.xlsx'; a.click();
+                window.URL.revokeObjectURL(url);
+              } catch { message.warning('暂无实测数据可导出'); }
+            }}>导出实测勘探孔</Button>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ display: 'inline-block', width: 80 }}>桩基数据:</span>

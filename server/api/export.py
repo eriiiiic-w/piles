@@ -17,7 +17,7 @@ def export_predictions(db: Session = Depends(get_db)):
     for r in results:
         flat = {
             "桩号": r["桩号"], "X": r["X坐标"], "Y": r["Y坐标"],
-            "桩径": r["桩径(mm)"], "桩型": r["桩型"],
+            "桩径": r["桩径"], "桩型": r["桩型"],
             "持力层顶标高": r.get("持力层顶标高", ""), "桩顶标高": r.get("桩顶标高", 0.5),
         }
         for k, v in r["土层预测"].items():

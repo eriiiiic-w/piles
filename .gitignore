@@ -1,7 +1,9 @@
 __pycache__/
 *.pyc
-pile_app.db
+*.db
 .env
 *.tmp
 .tmp_docx_unpacked/
-pile_app.db
+node_modules/
+client/dist/
+projects/*.db

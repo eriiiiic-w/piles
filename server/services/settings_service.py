@@ -9,6 +9,7 @@ DEFAULTS = {
     "alarm_threshold": "0.5",
     "interp_method": "克里金法",
     "pile_top_elev": "0.5",
+    "safety_factor": "2.0",
 }
 
 

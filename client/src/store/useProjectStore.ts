@@ -7,11 +7,16 @@ interface ProjectState {
   projects: ProjectInfo[];
   activeId: string | null;
   loading: boolean;
+  geoFileName: string | null;
+  pileFileName: string | null;
   refresh: () => Promise<void>;
   refreshProjects: () => Promise<void>;
   create: (name: string) => Promise<void>;
   activate: (id: string) => Promise<void>;
   remove: (id: string) => Promise<void>;
+  setGeoFileName: (name: string | null) => void;
+  setPileFileName: (name: string | null) => void;
+  exitProject: () => void;
 }
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
@@ -22,6 +27,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   projects: [],
   activeId: null,
   loading: false,
+  geoFileName: null,
+  pileFileName: null,
   refresh: async () => {
     set({ loading: true });
     try {
@@ -52,4 +59,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     await get().refreshProjects();
     await get().refresh();
   },
+  setGeoFileName: (name: string | null) => set({ geoFileName: name }),
+  setPileFileName: (name: string | null) => set({ pileFileName: name }),
+  exitProject: () => set({ activeId: null }),
 }));

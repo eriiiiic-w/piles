@@ -18,6 +18,7 @@ def get_settings(db: Session = Depends(get_db)):
         alarm_threshold=float(s["alarm_threshold"]),
         interp_method=s["interp_method"],
         pile_top_elev=float(s["pile_top_elev"]),
+        safety_factor=float(s["safety_factor"]),
     )
 
 
@@ -33,4 +34,5 @@ def put_settings(body: SettingUpdate, db: Session = Depends(get_db)):
         alarm_threshold=float(s["alarm_threshold"]),
         interp_method=s["interp_method"],
         pile_top_elev=float(s["pile_top_elev"]),
+        safety_factor=float(s["safety_factor"]),
     )
