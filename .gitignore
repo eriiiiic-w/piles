@@ -7,3 +7,7 @@ __pycache__/
 node_modules/
 client/dist/
 projects/*.db
+.claude/
+A演示/
+ai_suggestions/
+桩基土层预测系统.py
