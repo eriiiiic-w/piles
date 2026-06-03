@@ -10,6 +10,7 @@ projects/*.db
 .claude/
 .superpowers/
 .tmp_skills/
+skills/
 A演示/
 ai_suggestions/
 geo_report/
