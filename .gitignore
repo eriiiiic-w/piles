@@ -5,7 +5,6 @@ __pycache__/
 *.tmp
 .tmp_docx_unpacked/
 node_modules/
-client/dist/
 projects/*.db
 .claude/
 .superpowers/
